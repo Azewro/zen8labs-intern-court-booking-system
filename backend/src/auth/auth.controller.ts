@@ -1,4 +1,4 @@
-import { Controller, Post, Body, ValidationPipe, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, ValidationPipe, Get, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -20,11 +20,13 @@ export class AuthController {
 
   @Get('google')
   @UseGuards(AuthGuard('google'))
-  async googleAuth(@Req() req) {}
+  async googleAuth(@Req() req: any) {}
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  googleAuthRedirect(@Req() req) {
-    return this.authService.googleLogin(req);
+  async googleAuthRedirect(@Req() req: any, @Res() res: any) {
+    const data = await this.authService.googleLogin(req);
+    // Chuyển hướng người dùng về Frontend kèm theo Token trên URL
+    return res.redirect(`http://localhost:3000/login?token=${data.access_token}&role=${data.role}`);
   }
 }

@@ -42,6 +42,9 @@ export class AuthService {
     }
 
     // 2. So sánh mật khẩu
+    if (!user.password) {
+      throw new HttpException('Tài khoản này được đăng ký bằng Google. Vui lòng sử dụng Đăng nhập bằng Google.', HttpStatus.UNAUTHORIZED);
+    }
     const isMatch = await bcrypt.compare(dto.password, user.password);
     if (!isMatch) {
       throw new HttpException('Sai email hoặc mật khẩu', HttpStatus.UNAUTHORIZED);
@@ -51,6 +54,7 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
+      user: { role: user.role }
     };
   }
 
@@ -74,6 +78,7 @@ export class AuthService {
     const payload = { sub: req.user.id, email: req.user.email, role: req.user.role };
     return {
       access_token: this.jwtService.sign(payload),
+      role: req.user.role
     };
   }
 }
