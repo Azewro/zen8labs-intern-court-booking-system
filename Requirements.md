@@ -6,10 +6,10 @@
 | 4  | Sửa sân                   | Admin chỉnh sửa thông tin sân                | API update thành công                    | ✅ Hoàn thành |
 | 5  | Xóa sân (Soft delete)     | Sân bị đánh dấu xóa nhưng vẫn còn trong DB   | Soft delete đúng logic                   | ✅ Hoàn thành (Có kèm tính năng Khôi phục) |
 | 6  | Xem danh sách sân         | Có pagination và filter theo tên hoặc vị trí | Response đúng, pagination hoạt động      | ✅ Hoàn thành |
-| 7  | Xem schedule của sân      | Xem các slot đã đặt của sân theo ngày        | API trả về danh sách booking theo ngày   | |
-| 8  | Đặt lịch sân              | User đặt sân theo time slot                  | Không cho phép trùng lịch                | |
-| 9  | Hủy lịch sân              | User có thể hủy booking của mình             | Status booking chuyển sang CANCELLED     | |
-| 10 | Xem danh sách lịch đã đặt | User xem các booking của mình                | API trả về đúng dữ liệu                  | |
+| 7  | Xem schedule của sân      | Xem các slot đã đặt của sân theo ngày        | API trả về danh sách booking theo ngày   | ✅ Hoàn thành (Giao diện UI/UX thông minh) |
+| 8  | Đặt lịch sân              | User đặt sân theo time slot                  | Không cho phép trùng lịch                | ✅ Hoàn thành (Chống trùng lịch bằng Transaction) |
+| 9  | Hủy lịch sân              | User có thể hủy booking của mình             | Status booking chuyển sang CANCELLED     | ✅ Hoàn thành (Chỉ cho phép hủy trước 2 tiếng) |
+| 10 | Xem danh sách lịch đã đặt | User xem các booking của mình                | API trả về đúng dữ liệu                  | ✅ Hoàn thành |
 | 11 | Thống kê cơ bản của sân   | Tổng giờ đã đặt, tỉ lệ sử dụng sân           | Query aggregation đúng                   | |
 | 12 | Database Design           | Thiết kế database hợp lý                     | ERD rõ ràng, chuẩn hóa dữ liệu           | ✅ Hoàn thành (Đã dựng cấu trúc PostgreSQL bằng Prisma ORM) |
 | 13 | Unit testing              | Viết test cho các chức năng chính            | Coverage đạt yêu cầu                     | |

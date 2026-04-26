@@ -4,13 +4,28 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
+
+  async getMe(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new HttpException('Không tìm thấy người dùng', HttpStatus.NOT_FOUND);
+    const { password, ...result } = user;
+    return result;
+  }
+
+  async updateProfile(userId: string, data: { fullName?: string; phoneNumber?: string }) {
+    const updated = await this.usersService.update(userId, data);
+    const { password, ...result } = updated;
+    return result;
+  }
 
   async register(dto: RegisterDto) {
     // 1. Kiểm tra email đã tồn tại chưa
@@ -80,5 +95,69 @@ export class AuthService {
       access_token: this.jwtService.sign(payload),
       role: req.user.role
     };
+  }
+
+  async changePassword(userId: string, body: any) {
+    const { oldPassword, newPassword } = body;
+    const user = await this.usersService.findById(userId);
+    
+    if (!user?.password) {
+      throw new HttpException('Tài khoản liên kết Google không thể đổi mật khẩu', HttpStatus.BAD_REQUEST);
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      throw new HttpException('Mật khẩu cũ không chính xác', HttpStatus.BAD_REQUEST);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.usersService.update(userId, { password: hashedPassword });
+    return { message: 'Đổi mật khẩu thành công' };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new HttpException('Email không tồn tại trong hệ thống', HttpStatus.NOT_FOUND);
+    }
+    if (!user.password) {
+      throw new HttpException('Tài khoản này liên kết với Google, không có mật khẩu để khôi phục.', HttpStatus.BAD_REQUEST);
+    }
+
+    // Tạo token reset có thời hạn 30p
+    const token = this.jwtService.sign(
+      { email, purpose: 'reset-password' },
+      { expiresIn: '30m' }
+    );
+
+    const isSent = await this.mailService.sendPasswordResetEmail(email, token);
+    if (!isSent) {
+      throw new HttpException('Không thể gửi email lúc này, vui lòng thử lại sau', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    return { message: 'Vui lòng kiểm tra email của bạn để đặt lại mật khẩu' };
+  }
+
+  async resetPassword(body: any) {
+    const { token, newPassword } = body;
+    let payload;
+    try {
+      payload = this.jwtService.verify(token);
+    } catch (error) {
+      throw new HttpException('Link đặt lại mật khẩu đã hết hạn hoặc không hợp lệ', HttpStatus.BAD_REQUEST);
+    }
+
+    if (payload.purpose !== 'reset-password') {
+      throw new HttpException('Token không hợp lệ', HttpStatus.BAD_REQUEST);
+    }
+
+    const user = await this.usersService.findByEmail(payload.email);
+    if (!user) {
+      throw new HttpException('Tài khoản không tồn tại', HttpStatus.NOT_FOUND);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.usersService.update(user.id, { password: hashedPassword });
+    return { message: 'Đặt lại mật khẩu thành công' };
   }
 }

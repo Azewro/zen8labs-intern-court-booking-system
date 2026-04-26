@@ -70,12 +70,61 @@ export class CourtsService {
     });
   }
 
-  // Tiêu chí 5: Xóa sân (Soft Delete)
+  // Lấy danh sách Booking sẽ bị ảnh hưởng nếu xóa sân này
+  async getAffectedBookings(id: string) {
+    return this.prisma.booking.findMany({
+      where: {
+        courtId: id,
+        startTime: { gt: new Date() },
+        status: { in: ['PENDING', 'CONFIRMED'] }
+      },
+      include: { user: { select: { email: true, fullName: true } } },
+      orderBy: { startTime: 'asc' }
+    });
+  }
+
+  // Tiêu chí 5: Xóa sân (Soft Delete) - Cải tiến dùng Transaction để hủy cả lịch khách hàng
   async softDelete(id: string) {
-    await this.findOne(id); // Phải tồn tại mới cho xóa
-    return this.prisma.court.update({
-      where: { id },
-      data: { deletedAt: new Date() }, // Gắn mác ngày xóa thay vì xóa cứng
+    const court = await this.findOne(id);
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Soft Delete sân
+      const deletedCourt = await tx.court.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+
+      // 2. Tìm các lịch đặt bị ảnh hưởng
+      const futureBookings = await tx.booking.findMany({
+        where: {
+          courtId: id,
+          startTime: { gt: new Date() },
+          status: { in: ['PENDING', 'CONFIRMED'] }
+        },
+        include: { user: true }
+      });
+
+      // 3. Hủy hàng loạt lịch đặt
+      if (futureBookings.length > 0) {
+        await tx.booking.updateMany({
+          where: {
+            courtId: id,
+            startTime: { gt: new Date() },
+            status: { in: ['PENDING', 'CONFIRMED'] }
+          },
+          data: { status: 'CANCELLED' }
+        });
+
+        // 4. Mô phỏng gửi email xin lỗi khách hàng
+        console.log('\n================ GỬI EMAIL THÔNG BÁO ================');
+        for (const b of futureBookings) {
+          console.log(`📧 Tới: ${b.user.email} (${b.user.fullName})`);
+          console.log(`Nội dung: Xin lỗi quý khách, sân "${court.name}" bảo trì/ngừng hoạt động. Lịch đặt của quý khách vào lúc ${b.startTime.toLocaleString()} đã bị hủy.`);
+        }
+        console.log('=====================================================\n');
+      }
+
+      return deletedCourt;
     });
   }
 

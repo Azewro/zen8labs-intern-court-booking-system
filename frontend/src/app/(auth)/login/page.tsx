@@ -123,6 +123,12 @@ export default function LoginPage() {
         >
           {isSubmitting ? 'Đang xử lý...' : 'ĐĂNG NHẬP'}
         </button>
+
+        <div className="text-right">
+          <Link href="/forgot-password" className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+            Quên mật khẩu?
+          </Link>
+        </div>
       </form>
 
       <div className="mt-7">

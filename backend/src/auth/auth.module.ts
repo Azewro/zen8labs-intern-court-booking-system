@@ -6,6 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { GoogleStrategy } from './google.strategy';
       secret: process.env.JWT_SECRET || 'super-secret-key-for-zen8labs',
       signOptions: { expiresIn: '1d' }, // Token sống được 1 ngày
     }),
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, GoogleStrategy],

@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit2, Trash2, X, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Edit2, Trash2, X, Archive, ArchiveRestore, AlertTriangle, AlertCircle, CheckCircle2 } from "lucide-react";
+import { format } from "date-fns";
 import axiosInstance from "@/lib/axios";
 import toast from "react-hot-toast";
 
@@ -28,6 +29,13 @@ export default function CourtsPage() {
   const [isDeletedModalOpen, setIsDeletedModalOpen] = useState(false);
   const [deletedCourts, setDeletedCourts] = useState<Court[]>([]);
   const [loadingDeleted, setLoadingDeleted] = useState(false);
+
+  // Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [courtToDelete, setCourtToDelete] = useState<Court | null>(null);
+  const [affectedBookings, setAffectedBookings] = useState<any[]>([]);
+  const [loadingAffected, setLoadingAffected] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const fetchCourts = async () => {
     try {
@@ -112,15 +120,30 @@ export default function CourtsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa sân này? Dữ liệu sẽ được Soft Delete.")) {
-      try {
-        await axiosInstance.delete(`/courts/${id}`);
-        toast.success("Đã xóa sân thành công");
-        fetchCourts();
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || "Lỗi khi xóa sân");
-      }
+  const openDeleteModal = async (court: Court) => {
+    setCourtToDelete(court);
+    setDeleteConfirmText("");
+    setIsDeleteModalOpen(true);
+    setLoadingAffected(true);
+    try {
+      const res = await axiosInstance.get(`/courts/${court.id}/affected-bookings`);
+      setAffectedBookings(res.data);
+    } catch (error) {
+      toast.error("Lỗi khi tải thông tin lịch đặt bị ảnh hưởng");
+    } finally {
+      setLoadingAffected(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!courtToDelete) return;
+    try {
+      await axiosInstance.delete(`/courts/${courtToDelete.id}`);
+      toast.success("Đã xóa sân và hủy các lịch đặt liên quan");
+      setIsDeleteModalOpen(false);
+      fetchCourts();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Lỗi khi xóa sân");
     }
   };
 
@@ -182,7 +205,7 @@ export default function CourtsPage() {
                     <button onClick={() => openModal(court)} className="p-2 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-lg transition-colors" title="Sửa">
                       <Edit2 size={16} />
                     </button>
-                    <button onClick={() => handleDelete(court.id)} className="p-2 bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors" title="Xóa">
+                    <button onClick={() => openDeleteModal(court)} className="p-2 bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors" title="Xóa">
                       <Trash2 size={16} />
                     </button>
                   </td>
@@ -324,6 +347,92 @@ export default function CourtsPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Xóa Sân (Cảnh báo ảnh hưởng lịch đặt) */}
+      <AnimatePresence>
+        {isDeleteModalOpen && courtToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setIsDeleteModalOpen(false)}
+            />
+            
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-2xl bg-slate-900 border border-rose-500/30 p-8 rounded-3xl shadow-2xl flex flex-col max-h-[90vh]"
+            >
+              <button onClick={() => setIsDeleteModalOpen(false)} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+
+              <h3 className="text-2xl font-bold text-rose-500 mb-2 flex items-center gap-3">
+                <AlertTriangle size={28} /> Cảnh Báo Xóa Sân
+              </h3>
+              <p className="text-slate-300 mb-6">Bạn đang chuẩn bị xóa sân <strong className="text-white">"{courtToDelete.name}"</strong>. Hành động này sẽ chuyển sân vào Thùng Rác.</p>
+
+              {loadingAffected ? (
+                <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-rose-500"></div></div>
+              ) : affectedBookings.length > 0 ? (
+                <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-5 mb-6">
+                  <div className="flex items-start gap-3 text-rose-400 mb-4">
+                    <AlertCircle size={20} className="shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Phát hiện {affectedBookings.length} lịch đặt sắp tới bị ảnh hưởng!</p>
+                      <p className="text-sm mt-1">Nếu bạn tiếp tục xóa, toàn bộ các lịch đặt dưới đây sẽ bị <strong>HỦY</strong> và hệ thống sẽ tự động gửi Email xin lỗi đến khách hàng.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                    {affectedBookings.map((b: any, i: number) => (
+                      <div key={i} className="bg-slate-800/80 p-3 rounded-lg flex justify-between items-center text-sm">
+                        <div>
+                          <p className="font-semibold text-slate-200">{b.user.email}</p>
+                          <p className="text-slate-400">{format(new Date(b.startTime), "dd/MM/yyyy HH:mm")}</p>
+                        </div>
+                        <span className="font-bold text-rose-400">Sẽ bị hủy</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 mb-6 text-emerald-400 flex items-center gap-3">
+                  <CheckCircle2 size={20} />
+                  <p>Sân này không có lịch đặt nào trong tương lai. Có thể xóa an toàn.</p>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <label className="block text-sm text-slate-400 mb-2">
+                  Để xác nhận, vui lòng gõ <strong>Đồng Ý Xóa Sân {courtToDelete.name}</strong>
+                </label>
+                <input 
+                  type="text" 
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-rose-500 transition-all"
+                  placeholder={`Đồng Ý Xóa Sân ${courtToDelete.name}`}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-auto">
+                <button onClick={() => setIsDeleteModalOpen(false)} className="px-6 py-3 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-xl font-medium transition-colors">
+                  Hủy bỏ
+                </button>
+                <button 
+                  disabled={deleteConfirmText !== `Đồng Ý Xóa Sân ${courtToDelete.name}`}
+                  onClick={confirmDelete}
+                  className="px-6 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold shadow-lg shadow-rose-500/20 transition-all"
+                >
+                  Xác nhận Xóa
+                </button>
               </div>
             </motion.div>
           </div>

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Users, CalendarDays, MapPin, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, CalendarDays, MapPin, LogOut, UserCircle } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -82,9 +82,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className="h-20 border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-md flex items-center justify-between px-8 z-10">
           <h1 className="text-xl font-semibold">Admin Workspace</h1>
           <div className="flex items-center gap-4">
-             <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 shadow-md">
-               <span className="text-sm font-bold text-teal-400">ADM</span>
-             </div>
+            <Link
+              href="/profile"
+              title="Hồ sơ cá nhân"
+              className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 shadow-md hover:border-teal-500/50 hover:bg-slate-700 transition-all group"
+            >
+              <span className="text-sm font-bold text-teal-400 group-hover:scale-110 transition-transform">ADM</span>
+            </Link>
           </div>
         </header>
 

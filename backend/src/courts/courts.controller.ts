@@ -51,6 +51,14 @@ export class CourtsController {
     return this.courtsService.softDelete(id);
   }
 
+  // API Lấy danh sách booking bị ảnh hưởng nếu xóa sân
+  @Get(':id/affected-bookings')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  getAffectedBookings(@Param('id') id: string) {
+    return this.courtsService.getAffectedBookings(id);
+  }
+
   // API Khôi phục sân
   @Patch(':id/restore')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
