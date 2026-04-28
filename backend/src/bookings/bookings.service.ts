@@ -52,10 +52,16 @@ export class BookingsService {
     }
 
     return await this.prisma.$transaction(async (tx) => {
-      // 1. Lấy thông tin sân để tính tiền
+      // 1. Lấy thông tin sân để tính tiền và kiểm tra trạng thái
       const court = await tx.court.findUnique({ where: { id: dto.courtId } });
       if (!court || court.deletedAt) {
-        throw new NotFoundException('Sân không tồn tại hoặc đang tạm đóng cửa.');
+        throw new NotFoundException('Sân không tồn tại hoặc đã đóng cửa.');
+      }
+      if (court.status === 'SUSPENDED') {
+        throw new BadRequestException('Sân này đang tạm ngừng nhận đặt lịch. Vui lòng chọn sân khác.');
+      }
+      if (court.status === 'CLOSED') {
+        throw new BadRequestException('Sân này đã đóng cửa vĩnh viễn.');
       }
 
       // 2. Chống Double Booking (Thuật toán Overlap: S_new < E_old AND E_new > S_old)

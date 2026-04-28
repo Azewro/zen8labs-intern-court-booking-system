@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Edit2, Trash2, X, Archive, ArchiveRestore, AlertTriangle, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Edit2, X, ChevronDown, AlertTriangle, Phone, Star, Clock, CheckCircle2, XCircle, PauseCircle, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
 import axiosInstance from "@/lib/axios";
 import toast from "react-hot-toast";
@@ -11,101 +11,71 @@ interface Court {
   name: string;
   location: string;
   pricePerHour: number;
-  isActive: boolean;
+  status: "ACTIVE" | "SUSPENDED" | "CLOSED";
+  deletedAt: string | null;
 }
+
+interface AffectedBookings {
+  urgent: any[];
+  vip: any[];
+  normal: any[];
+  total: number;
+}
+
+const STATUS_CONFIG = {
+  ACTIVE:    { label: "Hoạt động",    color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20", icon: <CheckCircle2 size={13}/> },
+  SUSPENDED: { label: "Tạm ngừng",   color: "text-amber-400 bg-amber-400/10 border-amber-400/20",       icon: <PauseCircle size={13}/> },
+  CLOSED:    { label: "Đã đóng",      color: "text-rose-400 bg-rose-400/10 border-rose-400/20",          icon: <XCircle size={13}/> },
+};
 
 export default function CourtsPage() {
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  
-  // Form State
   const [formData, setFormData] = useState({ name: "", location: "", pricePerHour: "" });
 
-  // Deleted Courts State
-  const [isDeletedModalOpen, setIsDeletedModalOpen] = useState(false);
-  const [deletedCourts, setDeletedCourts] = useState<Court[]>([]);
-  const [loadingDeleted, setLoadingDeleted] = useState(false);
-
-  // Delete Modal State
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [courtToDelete, setCourtToDelete] = useState<Court | null>(null);
-  const [affectedBookings, setAffectedBookings] = useState<any[]>([]);
+  // Close flow — Step 1: affected bookings preview, Step 2: text confirm
+  const [closeStep, setCloseStep] = useState<0 | 1 | 2>(0);
+  const [courtToClose, setCourtToClose] = useState<Court | null>(null);
+  const [affected, setAffected] = useState<AffectedBookings | null>(null);
   const [loadingAffected, setLoadingAffected] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchCourts = async () => {
     try {
       setLoading(true);
-      const res = await axiosInstance.get("/courts");
+      const res = await axiosInstance.get("/courts?includeInactive=true");
       setCourts(res.data.data);
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách sân");
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error("Lỗi khi tải danh sách sân"); }
+    finally { setLoading(false); }
   };
 
+  useEffect(() => { fetchCourts(); }, []);
+
+  // Đóng dropdown khi click ngoài
   useEffect(() => {
-    fetchCourts();
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdownId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const openModal = (court?: Court) => {
-    if (court) {
-      setEditingId(court.id);
-      setFormData({ name: court.name, location: court.location, pricePerHour: court.pricePerHour.toString() });
-    } else {
-      setEditingId(null);
-      setFormData({ name: "", location: "", pricePerHour: "" });
-    }
+    setEditingId(court?.id ?? null);
+    setFormData(court ? { name: court.name, location: court.location, pricePerHour: court.pricePerHour.toString() } : { name: "", location: "", pricePerHour: "" });
     setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingId(null);
-  };
-
-  const fetchDeletedCourts = async () => {
-    try {
-      setLoadingDeleted(true);
-      const res = await axiosInstance.get("/courts?deleted=true");
-      setDeletedCourts(res.data.data);
-    } catch (error) {
-      toast.error("Lỗi khi tải danh sách sân đã xóa");
-    } finally {
-      setLoadingDeleted(false);
-    }
-  };
-
-  const openDeletedModal = () => {
-    fetchDeletedCourts();
-    setIsDeletedModalOpen(true);
-  };
-
-  const handleRestore = async (id: string) => {
-    try {
-      await axiosInstance.patch(`/courts/${id}/restore`);
-      toast.success("Khôi phục sân thành công");
-      fetchDeletedCourts();
-      fetchCourts(); // Làm mới danh sách chính
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Lỗi khi khôi phục sân");
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = {
-        name: formData.name,
-        location: formData.location,
-        pricePerHour: Number(formData.pricePerHour)
-      };
-
+      const payload = { name: formData.name, location: formData.location, pricePerHour: Number(formData.pricePerHour) };
       if (editingId) {
         await axiosInstance.patch(`/courts/${editingId}`, payload);
         toast.success("Cập nhật sân thành công!");
@@ -113,64 +83,91 @@ export default function CourtsPage() {
         await axiosInstance.post("/courts", payload);
         toast.success("Tạo sân mới thành công!");
       }
-      closeModal();
+      setIsModalOpen(false);
       fetchCourts();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Có lỗi xảy ra");
-    }
+    } catch (e: any) { toast.error(e.response?.data?.message || "Có lỗi xảy ra"); }
   };
 
-  const openDeleteModal = async (court: Court) => {
-    setCourtToDelete(court);
-    setDeleteConfirmText("");
-    setIsDeleteModalOpen(true);
+  const handleSuspend = async (court: Court) => {
+    setOpenDropdownId(null);
+    try {
+      await axiosInstance.patch(`/courts/${court.id}/suspend`);
+      toast.success(`Đã tạm ngừng sân "${court.name}"`);
+      fetchCourts();
+    } catch (e: any) { toast.error(e.response?.data?.message || "Lỗi"); }
+  };
+
+  const handleActivate = async (court: Court) => {
+    setOpenDropdownId(null);
+    try {
+      await axiosInstance.patch(`/courts/${court.id}/activate`);
+      toast.success(`Đã kích hoạt lại sân "${court.name}"`);
+      fetchCourts();
+    } catch (e: any) { toast.error(e.response?.data?.message || "Lỗi"); }
+  };
+
+  // Bắt đầu flow đóng sân — Step 1
+  const startCloseFlow = async (court: Court) => {
+    setOpenDropdownId(null);
+    setCourtToClose(court);
+    setConfirmText("");
+    setAffected(null);
+    setCloseStep(1);
     setLoadingAffected(true);
     try {
       const res = await axiosInstance.get(`/courts/${court.id}/affected-bookings`);
-      setAffectedBookings(res.data);
-    } catch (error) {
-      toast.error("Lỗi khi tải thông tin lịch đặt bị ảnh hưởng");
-    } finally {
-      setLoadingAffected(false);
-    }
+      setAffected(res.data);
+    } catch { toast.error("Lỗi khi tải thông tin lịch đặt"); }
+    finally { setLoadingAffected(false); }
   };
 
-  const confirmDelete = async () => {
-    if (!courtToDelete) return;
+  // Xác nhận lần 2 — Step 2
+  const confirmClose = async () => {
+    if (!courtToClose) return;
+    const expected = `Đồng Ý Đóng ${courtToClose.name}`;
+    if (confirmText !== expected) { toast.error(`Vui lòng nhập đúng: "${expected}"`); return; }
     try {
-      await axiosInstance.delete(`/courts/${courtToDelete.id}`);
-      toast.success("Đã xóa sân và hủy các lịch đặt liên quan");
-      setIsDeleteModalOpen(false);
+      await axiosInstance.delete(`/courts/${courtToClose.id}`);
+      toast.success(`Đã đóng sân "${courtToClose.name}" và hủy các lịch liên quan`);
+      setCloseStep(0);
+      setCourtToClose(null);
       fetchCourts();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Lỗi khi xóa sân");
-    }
+    } catch (e: any) { toast.error(e.response?.data?.message || "Lỗi khi đóng sân"); }
+  };
+
+  const BookingGroup = ({ bookings, label, color, icon, note }: any) => {
+    if (!bookings?.length) return null;
+    return (
+      <div className={`border rounded-xl p-4 mb-3 ${color}`}>
+        <p className="font-bold flex items-center gap-2 mb-3">{icon} {label} ({bookings.length})</p>
+        {note && <p className="text-xs mb-3 opacity-80">{note}</p>}
+        <div className="space-y-2">
+          {bookings.map((b: any) => (
+            <div key={b.id} className="bg-slate-950/40 rounded-lg px-3 py-2 text-sm flex justify-between items-center">
+              <div>
+                <span className="font-semibold text-white">{b.user.fullName}</span>
+                <span className="text-slate-400 ml-2">{b.user.email}</span>
+                {b.user.phoneNumber && <span className="text-slate-400 ml-2">📞 {b.user.phoneNumber}</span>}
+              </div>
+              <span className="text-teal-400 font-mono text-xs">{format(new Date(b.startTime), "HH:mm dd/MM")}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={dropdownRef}>
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 text-transparent bg-clip-text">Quản lý Sân Cầu Lông</h2>
-          <p className="text-slate-400 mt-1">Xem, thêm, sửa, xóa các sân cầu lông trong hệ thống.</p>
+          <p className="text-slate-400 mt-1">Xem, thêm, sửa và quản lý trạng thái các sân.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={openDeletedModal}
-            className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl border border-slate-700 transition-all shadow-md"
-          >
-            <Archive size={20} className="text-rose-400" />
-            Thùng rác
-          </button>
-          <button 
-            onClick={() => openModal()}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white font-semibold rounded-xl shadow-lg shadow-teal-500/20 transition-all"
-          >
-            <Plus size={20} />
-            Tạo sân mới
-          </button>
-        </div>
+        <button onClick={() => openModal()} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white font-semibold rounded-xl shadow-lg transition-all">
+          <Plus size={20} /> Tạo sân mới
+        </button>
       </div>
 
       {/* Table */}
@@ -181,261 +178,196 @@ export default function CourtsPage() {
               <th className="p-5 font-medium">Tên sân</th>
               <th className="p-5 font-medium">Vị trí</th>
               <th className="p-5 font-medium">Giá / Giờ</th>
+              <th className="p-5 font-medium">Trạng thái</th>
               <th className="p-5 font-medium text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="p-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
+              <tr><td colSpan={5} className="p-8 text-center text-slate-500">Đang tải...</td></tr>
             ) : courts.length === 0 ? (
-              <tr><td colSpan={4} className="p-8 text-center text-slate-500">Chưa có sân nào. Hãy tạo sân mới!</td></tr>
-            ) : (
-              courts.map((court, idx) => (
-                <motion.tr 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  key={court.id} 
-                  className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors"
-                >
-                  <td className="p-5 font-medium text-white">{court.name}</td>
-                  <td className="p-5 text-slate-300">{court.location}</td>
-                  <td className="p-5 text-teal-400 font-semibold">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(court.pricePerHour)}</td>
-                  <td className="p-5 flex justify-end gap-3">
-                    <button onClick={() => openModal(court)} className="p-2 bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-lg transition-colors" title="Sửa">
-                      <Edit2 size={16} />
-                    </button>
-                    <button onClick={() => openDeleteModal(court)} className="p-2 bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors" title="Xóa">
-                      <Trash2 size={16} />
-                    </button>
+              <tr><td colSpan={5} className="p-8 text-center text-slate-500">Chưa có sân nào.</td></tr>
+            ) : courts.map((court, idx) => {
+              const cfg = STATUS_CONFIG[court.status];
+              const isOpen = openDropdownId === court.id;
+              return (
+                <motion.tr key={court.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}
+                  className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors">
+                  <td className="p-5 font-semibold text-white">{court.name}</td>
+                  <td className="p-5 text-slate-400">{court.location}</td>
+                  <td className="p-5 text-teal-400 font-semibold">{new Intl.NumberFormat("vi-VN",{style:"currency",currency:"VND"}).format(Number(court.pricePerHour))}</td>
+                  <td className="p-5">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${cfg.color}`}>
+                      {cfg.icon} {cfg.label}
+                    </span>
+                  </td>
+                  <td className="p-5 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {court.status !== "CLOSED" && (
+                        <button onClick={() => openModal(court)} className="p-2 text-slate-400 hover:text-teal-400 hover:bg-slate-800 rounded-lg transition-all" title="Sửa">
+                          <Edit2 size={17}/>
+                        </button>
+                      )}
+                      {/* Dropdown hành động */}
+                      <div className="relative">
+                        <button onClick={() => setOpenDropdownId(isOpen ? null : court.id)}
+                          className="flex items-center gap-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all text-sm font-medium">
+                          Hành động <ChevronDown size={14} className={`transition-transform ${isOpen ? "rotate-180" : ""}`}/>
+                        </button>
+                        <AnimatePresence>
+                          {isOpen && (
+                            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+                              className="absolute right-0 top-10 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden w-48">
+                              {court.status === "ACTIVE" && (
+                                <button onClick={() => handleSuspend(court)} className="w-full flex items-center gap-3 px-4 py-3 text-amber-400 hover:bg-slate-800 text-sm font-medium transition-colors">
+                                  <PauseCircle size={16}/> Tạm ngừng
+                                </button>
+                              )}
+                              {court.status === "SUSPENDED" && (
+                                <button onClick={() => handleActivate(court)} className="w-full flex items-center gap-3 px-4 py-3 text-emerald-400 hover:bg-slate-800 text-sm font-medium transition-colors">
+                                  <PlayCircle size={16}/> Kích hoạt lại
+                                </button>
+                              )}
+                              {court.status !== "CLOSED" && (
+                                <button onClick={() => startCloseFlow(court)} className="w-full flex items-center gap-3 px-4 py-3 text-rose-400 hover:bg-slate-800 text-sm font-medium transition-colors border-t border-slate-800">
+                                  <XCircle size={16}/> Đóng vĩnh viễn
+                                </button>
+                              )}
+                              {court.status === "CLOSED" && (
+                                <div className="px-4 py-3 text-slate-600 text-sm text-center">Không có thao tác</div>
+                              )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
                   </td>
                 </motion.tr>
-              ))
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Glassmorphism Modal cho Thêm/Sửa sân */}
+      {/* ===== CLOSE FLOW STEP 1: Cảnh báo & Danh sách phân loại ===== */}
+      <AnimatePresence>
+        {closeStep === 1 && courtToClose && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
+              className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+              <div className="p-7">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="h-10 w-10 rounded-full bg-rose-500/10 flex items-center justify-center">
+                    <AlertTriangle size={20} className="text-rose-400"/>
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Cảnh báo trước khi đóng sân</h3>
+                </div>
+                <p className="text-slate-400 mb-6">Sân <strong className="text-white">"{courtToClose.name}"</strong> có booking tương lai sẽ bị ảnh hưởng. Vui lòng xem xét kỹ trước khi tiếp tục.</p>
+
+                {loadingAffected ? (
+                  <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-teal-500"/></div>
+                ) : affected?.total === 0 ? (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-emerald-400 text-center font-medium mb-4">
+                    ✅ Không có lịch đặt nào bị ảnh hưởng. An toàn để đóng sân.
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-slate-300 font-semibold mb-4">Tổng cộng <span className="text-rose-400">{affected?.total} lịch đặt</span> sẽ bị hủy:</p>
+                    <BookingGroup bookings={affected?.urgent} label="Sắp đến giờ (< 24h) — Cần gọi điện ngay" color="border-rose-500/30 text-rose-300" icon={<Clock size={15} className="text-rose-400"/>} note="⚠️ Những khách này cần được liên hệ trực tiếp để thông báo kịp thời."/>
+                    <BookingGroup bookings={affected?.vip} label="Khách VIP (đặt ≥ 3 tiếng)" color="border-amber-500/30 text-amber-300" icon={<Star size={15} className="text-amber-400"/>} note="⭐ Ưu tiên sắp xếp sân thay thế hoặc bù lịch cho nhóm này."/>
+                    <BookingGroup bookings={affected?.normal} label="Thông thường" color="border-slate-600 text-slate-300" icon={<CheckCircle2 size={15} className="text-slate-400"/>} note=""/>
+                  </>
+                )}
+
+                <div className="flex gap-3 mt-6">
+                  <button onClick={() => setCloseStep(0)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition-all">
+                    Hủy bỏ
+                  </button>
+                  <button onClick={() => setCloseStep(2)} className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl font-semibold transition-all">
+                    Tôi hiểu, tiếp tục →
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== CLOSE FLOW STEP 2: Xác nhận lần 2 ===== */}
+      <AnimatePresence>
+        {closeStep === 2 && courtToClose && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
+              className="bg-slate-900 border border-rose-500/20 rounded-3xl shadow-2xl w-full max-w-md p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center">
+                  <XCircle size={24} className="text-rose-400"/>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">Xác nhận đóng sân vĩnh viễn</h3>
+                  <p className="text-rose-400 text-sm font-medium">Hành động này không thể hoàn tác</p>
+                </div>
+              </div>
+              <p className="text-slate-300 mb-2">Để xác nhận, vui lòng nhập chính xác:</p>
+              <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mb-4 font-mono text-rose-300 text-sm select-all">
+                Đồng Ý Đóng {courtToClose.name}
+              </div>
+              <input
+                value={confirmText}
+                onChange={e => setConfirmText(e.target.value)}
+                placeholder="Nhập đoạn văn bản trên..."
+                className="w-full bg-slate-800 border border-slate-700 focus:border-rose-500 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 mb-6 transition-all"
+              />
+              <div className="flex gap-3">
+                <button onClick={() => setCloseStep(1)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition-all">
+                  ← Quay lại
+                </button>
+                <button onClick={confirmClose}
+                  disabled={confirmText !== `Đồng Ý Đóng ${courtToClose.name}`}
+                  className="flex-1 py-3 bg-rose-500 hover:bg-rose-400 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl font-bold transition-all">
+                  🔒 Đóng sân vĩnh viễn
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== MODAL TẠO / SỬA SÂN ===== */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={closeModal}
-            />
-            
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-slate-900 border border-slate-700/50 p-8 rounded-3xl shadow-2xl"
-            >
-              <button onClick={closeModal} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors">
-                <X size={24} />
-              </button>
-
-              <h3 className="text-2xl font-bold text-white mb-6">
-                {editingId ? "Cập nhật thông tin sân" : "Tạo sân cầu lông mới"}
-              </h3>
-
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
+              className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white">{editingId ? "Chỉnh sửa sân" : "Tạo sân mới"}</h3>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"><X size={20}/></button>
+              </div>
               <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Tên sân</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder-slate-500 transition-all"
-                    placeholder="VD: Sân Vip 1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Vị trí / Địa chỉ</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={formData.location}
-                    onChange={(e) => setFormData({...formData, location: e.target.value})}
-                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder-slate-500 transition-all"
-                    placeholder="VD: Tầng 2, Nhà thi đấu ABC..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Giá thuê mỗi giờ (VNĐ)</label>
-                  <input 
-                    type="number" 
-                    required
-                    min="0"
-                    value={formData.pricePerHour}
-                    onChange={(e) => setFormData({...formData, pricePerHour: e.target.value})}
-                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder-slate-500 transition-all"
-                    placeholder="VD: 150000"
-                  />
-                </div>
-                
-                <div className="pt-4 flex justify-end gap-3">
-                  <button type="button" onClick={closeModal} className="px-6 py-3 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-xl font-medium transition-colors">
-                    Hủy
-                  </button>
-                  <button type="submit" className="px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white rounded-xl font-semibold shadow-lg shadow-teal-500/20 transition-all">
-                    {editingId ? "Lưu thay đổi" : "Tạo sân ngay"}
+                {[
+                  { label: "Tên sân", key: "name", placeholder: "VD: Sân VIP 1 (Thảm Yonex)" },
+                  { label: "Vị trí", key: "location", placeholder: "VD: Tầng 1, Nhà thi đấu Zen8" },
+                  { label: "Giá / Giờ (VNĐ)", key: "pricePerHour", placeholder: "VD: 150000", type: "number" },
+                ].map(({ label, key, placeholder, type }) => (
+                  <div key={key}>
+                    <label className="block text-sm font-semibold text-slate-300 mb-2">{label}</label>
+                    <input required type={type || "text"} value={(formData as any)[key]} placeholder={placeholder}
+                      onChange={e => setFormData({ ...formData, [key]: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 focus:border-teal-500 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"/>
+                  </div>
+                ))}
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition-all">Hủy</button>
+                  <button type="submit" className="flex-1 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white rounded-xl font-bold transition-all">
+                    {editingId ? "Lưu thay đổi" : "Tạo sân"}
                   </button>
                 </div>
               </form>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Modal Quản lý Sân bị xóa */}
-      <AnimatePresence>
-        {isDeletedModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setIsDeletedModalOpen(false)}
-            />
-            
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-4xl bg-slate-900 border border-slate-700/50 p-8 rounded-3xl shadow-2xl flex flex-col max-h-[80vh]"
-            >
-              <button onClick={() => setIsDeletedModalOpen(false)} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors">
-                <X size={24} />
-              </button>
-
-              <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                <Archive size={28} className="text-rose-400" /> Thùng rác: Sân đã bị xóa
-              </h3>
-
-              <div className="flex-1 overflow-auto bg-slate-900/40 backdrop-blur-md border border-slate-800/50 rounded-2xl custom-scrollbar">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-300 text-sm uppercase tracking-wider sticky top-0">
-                      <th className="p-5 font-medium">Tên sân</th>
-                      <th className="p-5 font-medium">Vị trí</th>
-                      <th className="p-5 font-medium text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loadingDeleted ? (
-                      <tr><td colSpan={3} className="p-8 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
-                    ) : deletedCourts.length === 0 ? (
-                      <tr><td colSpan={3} className="p-8 text-center text-slate-500">Thùng rác trống.</td></tr>
-                    ) : (
-                      deletedCourts.map((court, idx) => (
-                        <motion.tr 
-                          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.05 }}
-                          key={court.id} 
-                          className="border-b border-slate-800/50 hover:bg-slate-800/20"
-                        >
-                          <td className="p-5 font-medium text-slate-400 line-through">{court.name}</td>
-                          <td className="p-5 text-slate-500">{court.location}</td>
-                          <td className="p-5 flex justify-end gap-3">
-                            <button onClick={() => handleRestore(court.id)} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors border border-emerald-500/20 font-medium">
-                              <ArchiveRestore size={16} /> Khôi phục
-                            </button>
-                          </td>
-                        </motion.tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Modal Xóa Sân (Cảnh báo ảnh hưởng lịch đặt) */}
-      <AnimatePresence>
-        {isDeleteModalOpen && courtToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              onClick={() => setIsDeleteModalOpen(false)}
-            />
-            
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-2xl bg-slate-900 border border-rose-500/30 p-8 rounded-3xl shadow-2xl flex flex-col max-h-[90vh]"
-            >
-              <button onClick={() => setIsDeleteModalOpen(false)} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors">
-                <X size={24} />
-              </button>
-
-              <h3 className="text-2xl font-bold text-rose-500 mb-2 flex items-center gap-3">
-                <AlertTriangle size={28} /> Cảnh Báo Xóa Sân
-              </h3>
-              <p className="text-slate-300 mb-6">Bạn đang chuẩn bị xóa sân <strong className="text-white">"{courtToDelete.name}"</strong>. Hành động này sẽ chuyển sân vào Thùng Rác.</p>
-
-              {loadingAffected ? (
-                <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-rose-500"></div></div>
-              ) : affectedBookings.length > 0 ? (
-                <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-5 mb-6">
-                  <div className="flex items-start gap-3 text-rose-400 mb-4">
-                    <AlertCircle size={20} className="shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold">Phát hiện {affectedBookings.length} lịch đặt sắp tới bị ảnh hưởng!</p>
-                      <p className="text-sm mt-1">Nếu bạn tiếp tục xóa, toàn bộ các lịch đặt dưới đây sẽ bị <strong>HỦY</strong> và hệ thống sẽ tự động gửi Email xin lỗi đến khách hàng.</p>
-                    </div>
-                  </div>
-                  
-                  <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                    {affectedBookings.map((b: any, i: number) => (
-                      <div key={i} className="bg-slate-800/80 p-3 rounded-lg flex justify-between items-center text-sm">
-                        <div>
-                          <p className="font-semibold text-slate-200">{b.user.email}</p>
-                          <p className="text-slate-400">{format(new Date(b.startTime), "dd/MM/yyyy HH:mm")}</p>
-                        </div>
-                        <span className="font-bold text-rose-400">Sẽ bị hủy</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-5 mb-6 text-emerald-400 flex items-center gap-3">
-                  <CheckCircle2 size={20} />
-                  <p>Sân này không có lịch đặt nào trong tương lai. Có thể xóa an toàn.</p>
-                </div>
-              )}
-
-              <div className="mb-6">
-                <label className="block text-sm text-slate-400 mb-2">
-                  Để xác nhận, vui lòng gõ <strong>Đồng Ý Xóa Sân {courtToDelete.name}</strong>
-                </label>
-                <input 
-                  type="text" 
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-rose-500 transition-all"
-                  placeholder={`Đồng Ý Xóa Sân ${courtToDelete.name}`}
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 mt-auto">
-                <button onClick={() => setIsDeleteModalOpen(false)} className="px-6 py-3 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white rounded-xl font-medium transition-colors">
-                  Hủy bỏ
-                </button>
-                <button 
-                  disabled={deleteConfirmText !== `Đồng Ý Xóa Sân ${courtToDelete.name}`}
-                  onClick={confirmDelete}
-                  className="px-6 py-3 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold shadow-lg shadow-rose-500/20 transition-all"
-                >
-                  Xác nhận Xóa
-                </button>
-              </div>
-            </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

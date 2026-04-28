@@ -10,7 +10,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class CourtsController {
   constructor(private readonly courtsService: CourtsService) {}
 
-  // Tiêu chí 3: Tạo sân (Chỉ ADMIN)
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
@@ -18,24 +17,21 @@ export class CourtsController {
     return this.courtsService.create(createCourtDto);
   }
 
-  // Tiêu chí 6: Xem danh sách sân (Ai cũng xem được, không gắn Guard)
   @Get()
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-    @Query('deleted') deleted?: string,
+    @Query('includeInactive') includeInactive?: string,
   ) {
-    return this.courtsService.findAll(page ? +page : 1, limit ? +limit : 10, search, deleted === 'true');
+    return this.courtsService.findAll(page ? +page : 1, limit ? +limit : 10, search, includeInactive === 'true');
   }
 
-  // Tiêu chí 6 (Phụ): Lấy chi tiết 1 sân
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.courtsService.findOne(id);
   }
 
-  // Tiêu chí 4: Sửa thông tin sân (Chỉ ADMIN)
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
@@ -43,23 +39,39 @@ export class CourtsController {
     return this.courtsService.update(id, updateCourtDto);
   }
 
-  // Tiêu chí 5: Xóa sân bằng cơ chế Soft Delete (Chỉ ADMIN)
-  @Delete(':id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles('ADMIN')
-  remove(@Param('id') id: string) {
-    return this.courtsService.softDelete(id);
-  }
-
-  // API Lấy danh sách booking bị ảnh hưởng nếu xóa sân
+  // Lấy chi tiết booking bị ảnh hưởng (phân loại URGENT/VIP/NORMAL)
   @Get(':id/affected-bookings')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
   getAffectedBookings(@Param('id') id: string) {
-    return this.courtsService.getAffectedBookings(id);
+    return this.courtsService.getAffectedBookingsDetail(id);
   }
 
-  // API Khôi phục sân
+  // Tạm ngừng sân (không cho đặt mới, giữ booking cũ)
+  @Patch(':id/suspend')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  suspend(@Param('id') id: string) {
+    return this.courtsService.suspend(id);
+  }
+
+  // Kích hoạt lại sân từ SUSPENDED về ACTIVE
+  @Patch(':id/activate')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  activate(@Param('id') id: string) {
+    return this.courtsService.activate(id);
+  }
+
+  // Đóng sân vĩnh viễn (cancel bookings + gửi mail)
+  @Delete(':id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  close(@Param('id') id: string) {
+    return this.courtsService.close(id);
+  }
+
+  // Restore (giữ tương thích cũ)
   @Patch(':id/restore')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')

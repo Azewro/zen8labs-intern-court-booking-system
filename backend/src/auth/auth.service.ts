@@ -130,10 +130,7 @@ export class AuthService {
       { expiresIn: '30m' }
     );
 
-    const isSent = await this.mailService.sendPasswordResetEmail(email, token);
-    if (!isSent) {
-      throw new HttpException('Không thể gửi email lúc này, vui lòng thử lại sau', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    await this.mailService.sendPasswordResetEmail(email, token);
 
     return { message: 'Vui lòng kiểm tra email của bạn để đặt lại mật khẩu' };
   }

@@ -39,18 +39,24 @@ model User {
   @@map("users")
 }
 
+enum CourtStatus {
+  ACTIVE      // Đang hoạt động bình thường
+  SUSPENDED   // Tạm ngừng - không cho đặt mới, giữ booking cũ
+  CLOSED      // Đóng vĩnh viễn - cancel toàn bộ booking tương lai
+}
+
 model Court {
-  id            String    @id @default(uuid())
+  id            String      @id @default(uuid())
   name          String
   location      String
-  description   String?   @db.Text
-  imageUrl      String?   @map("image_url")
-  pricePerHour  Decimal   @map("price_per_hour") @db.Decimal(10, 2)
-  isActive      Boolean   @default(true) @map("is_active")
+  description   String?     @db.Text
+  imageUrl      String?     @map("image_url")
+  pricePerHour  Decimal     @map("price_per_hour") @db.Decimal(10, 2)
+  status        CourtStatus @default(ACTIVE)
   
-  deletedAt     DateTime? @map("deleted_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime?   @map("deleted_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
   bookings      Booking[]
 
