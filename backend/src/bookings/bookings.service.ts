@@ -140,8 +140,15 @@ export class BookingsService {
     });
   }
 
-  // Cải tiến: Admin lấy danh sách toàn bộ Bookings (Có phân trang, search theo tên sân hoặc email khách)
-  async findAllForAdmin(page: number = 1, limit: number = 10, search?: string) {
+  async findAllForAdmin(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const { page = 1, limit = 10, search, status, sortBy = 'createdAt', sortOrder = 'desc' } = params;
     const skip = (page - 1) * limit;
 
     const whereClause: any = {};
@@ -152,17 +159,25 @@ export class BookingsService {
         { user: { fullName: { contains: search, mode: 'insensitive' } } }
       ];
     }
+    if (status && status !== 'ALL') {
+      whereClause.status = status;
+    }
+
+    // Mapping sort key cho Prisma
+    let orderBy: any = { [sortBy]: sortOrder };
+    if (sortBy === 'user.fullName') orderBy = { user: { fullName: sortOrder } };
+    if (sortBy === 'court.name') orderBy = { court: { name: sortOrder } };
 
     const [data, total] = await Promise.all([
       this.prisma.booking.findMany({
         where: whereClause,
         skip,
-        take: limit,
+        take: Number(limit),
         include: {
           court: { select: { name: true } },
           user: { select: { email: true, fullName: true } }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy
       }),
       this.prisma.booking.count({ where: whereClause })
     ]);

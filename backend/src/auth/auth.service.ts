@@ -52,6 +52,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new HttpException('Sai email hoặc mật khẩu', HttpStatus.UNAUTHORIZED);
+    // Kiểm tra trạng thái hoạt động (isActive)
     if (!user.isActive) throw new HttpException('Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.', HttpStatus.FORBIDDEN);
     if (!user.password) throw new HttpException('Tài khoản này được đăng ký bằng Google. Vui lòng sử dụng Đăng nhập bằng Google.', HttpStatus.UNAUTHORIZED);
     const isMatch = await bcrypt.compare(dto.password, user.password);
@@ -83,7 +84,8 @@ export class AuthService {
     const payload = { sub: req.user.id, email: req.user.email, role: req.user.role };
     return {
       access_token: this.jwtService.sign(payload),
-      role: req.user.role
+      role: req.user.role,
+      email: req.user.email
     };
   }
 

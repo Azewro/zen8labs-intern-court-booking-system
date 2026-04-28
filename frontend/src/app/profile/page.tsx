@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,7 +14,7 @@ import axiosInstance from "@/lib/axios";
 
 type Tab = "info" | "bookings" | "password";
 
-export default function ProfilePage() {
+function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>((searchParams.get("tab") as Tab) || "info");
@@ -111,7 +111,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* Breadcrumb bar */}
       <div className="border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-8 h-16 flex items-center gap-3">
           <button onClick={() => router.push(backUrl)} className="flex items-center gap-1.5 text-teal-400 hover:text-teal-300 font-semibold transition-colors">
@@ -124,22 +123,16 @@ export default function ProfilePage() {
 
       <div className="max-w-7xl mx-auto px-8 py-10">
         <div className="flex gap-8 items-start">
-
-          {/* ===== SIDEBAR ===== */}
           <aside className="w-80 shrink-0 sticky top-24">
-            {/* User card */}
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 mb-4 text-center">
               <div className="h-28 w-28 rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center text-4xl font-bold text-white shadow-2xl shadow-teal-500/30 mx-auto mb-5">
                 {(userInfo?.fullName || userInfo?.email || "?")?.charAt(0)?.toUpperCase()}
               </div>
               <p className="font-bold text-white text-xl leading-tight">{userInfo?.fullName || "Chưa cập nhật"}</p>
               <p className="text-slate-400 text-sm mt-2 truncate">{userInfo?.email}</p>
-              {userInfo?.phoneNumber && (
-                <p className="text-slate-500 text-sm mt-1">{userInfo.phoneNumber}</p>
-              )}
+              {userInfo?.phoneNumber && <p className="text-slate-500 text-sm mt-1">{userInfo.phoneNumber}</p>}
             </div>
 
-            {/* Nav */}
             <nav className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
               {tabs.map((tab, i) => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
@@ -150,8 +143,7 @@ export default function ProfilePage() {
                       ? "bg-teal-500/10 text-teal-400 border-l-4 border-l-teal-400"
                       : "text-slate-400 hover:text-white hover:bg-slate-800/60 border-l-4 border-l-transparent"
                   }`}>
-                  {tab.icon}
-                  {tab.label}
+                  {tab.icon} {tab.label}
                   {tab.key === "bookings" && bookings.length > 0 && (
                     <span className="ml-auto bg-teal-500/20 text-teal-400 text-xs font-bold px-2.5 py-1 rounded-full">{bookings.length}</span>
                   )}
@@ -160,11 +152,8 @@ export default function ProfilePage() {
             </nav>
           </aside>
 
-          {/* ===== CONTENT ===== */}
           <main className="flex-1 min-w-0">
             <AnimatePresence mode="wait">
-
-              {/* TAB: THÔNG TIN */}
               {activeTab === "info" && (
                 <motion.div key="info" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                   className="bg-slate-900 border border-slate-800 rounded-3xl p-10">
@@ -191,7 +180,6 @@ export default function ProfilePage() {
                     <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"/></div>
                   ) : (
                     <div className="space-y-7">
-                      {/* Họ và Tên */}
                       <div>
                         <label className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest mb-3"><User size={15}/>Họ và Tên</label>
                         {isEditing ? (
@@ -204,19 +192,14 @@ export default function ProfilePage() {
                           </div>
                         )}
                       </div>
-
-                      {/* Email */}
                       <div>
                         <label className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">
-                          <Mail size={15}/>Email
-                          <span className="text-slate-600 font-normal normal-case text-xs tracking-normal">(không thể thay đổi)</span>
+                          <Mail size={15}/>Email <span className="text-slate-600 font-normal normal-case text-xs tracking-normal">(không thể thay đổi)</span>
                         </label>
                         <div className="w-full bg-slate-800/20 border border-dashed border-slate-700 rounded-2xl px-6 py-5 text-slate-400 text-xl cursor-not-allowed">
                           {userInfo?.email}
                         </div>
                       </div>
-
-                      {/* Số điện thoại */}
                       <div>
                         <label className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest mb-3"><Phone size={15}/>Số Điện Thoại</label>
                         {isEditing ? (
@@ -234,7 +217,6 @@ export default function ProfilePage() {
                 </motion.div>
               )}
 
-              {/* TAB: LỊCH ĐẶT SÂN */}
               {activeTab === "bookings" && (
                 <motion.div key="bookings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                   <div className="flex items-center justify-between mb-7">
@@ -289,9 +271,7 @@ export default function ProfilePage() {
                             </div>
                             <div className="flex items-center px-7 border-l border-slate-800">
                               {canCancel ? (
-                                <button onClick={() => handleCancel(b.id)} className="px-6 py-3 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white font-bold rounded-xl transition-all border border-rose-500/20 text-base whitespace-nowrap">
-                                  Hủy Sân
-                                </button>
+                                <button onClick={() => handleCancel(b.id)} className="px-6 py-3 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white font-bold rounded-xl transition-all border border-rose-500/20 text-base whitespace-nowrap">Hủy Sân</button>
                               ) : (
                                 <p className="text-sm font-semibold text-slate-600 whitespace-nowrap px-2">{b.status === "CANCELLED" ? "Đã hủy" : "Không thể hủy"}</p>
                               )}
@@ -304,7 +284,6 @@ export default function ProfilePage() {
                 </motion.div>
               )}
 
-              {/* TAB: ĐỔI MẬT KHẨU */}
               {activeTab === "password" && (
                 <motion.div key="password" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                   className="bg-slate-900 border border-slate-800 rounded-3xl p-10">
@@ -339,11 +318,18 @@ export default function ProfilePage() {
                   </form>
                 </motion.div>
               )}
-
             </AnimatePresence>
           </main>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-teal-500"/></div>}>
+      <ProfileContent />
+    </Suspense>
   );
 }

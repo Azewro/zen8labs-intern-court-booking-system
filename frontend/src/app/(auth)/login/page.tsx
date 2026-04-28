@@ -29,7 +29,8 @@ export default function LoginPage() {
     try {
       const res = await authService.login(data);
       localStorage.setItem('access_token', res.access_token);
-      localStorage.setItem('role', res.user?.role || 'USER'); // Lưu Role
+      localStorage.setItem('role', res.user?.role || 'USER');
+      localStorage.setItem('user_email', data.email); // Lưu Email để nhận diện bản thân
       
       toast.success('Đăng nhập thành công!');
       setTimeout(() => {
@@ -49,10 +50,12 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const role = params.get('role');
+    const email = params.get('email');
     
     if (token) {
       localStorage.setItem('access_token', token);
       localStorage.setItem('role', role || 'USER');
+      if (email) localStorage.setItem('user_email', email);
       toast.success('Đăng nhập Google thành công!');
       setTimeout(() => {
         if (role === 'ADMIN') {

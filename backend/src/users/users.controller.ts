@@ -33,6 +33,6 @@ export class UsersController {
   // PATCH /users/:id/toggle-status
   @Patch(':id/toggle-status')
   toggleStatus(@Param('id') id: string, @Req() req: any) {
-    return this.usersService.toggleStatus(id, req.user.sub);
+    return this.usersService.toggleStatus(id, req.user.id);
   }
 }

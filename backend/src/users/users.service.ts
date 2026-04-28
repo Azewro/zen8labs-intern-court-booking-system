@@ -1,23 +1,24 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  async findByEmail(email: string) {
+  async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
-  async create(data: any) {
+  async create(data: any): Promise<User> {
     return this.prisma.user.create({ data });
   }
 
-  async findById(id: string) {
+  async findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: any): Promise<User> {
     return this.prisma.user.update({ where: { id }, data });
   }
 
@@ -43,8 +44,8 @@ export class UsersService {
     }
     if (role && role !== 'ALL') where.role = role;
 
-    const allowedSort = ['fullName', 'email', 'role', 'createdAt', 'isActive'];
-    const orderBy = allowedSort.includes(sortBy) ? { [sortBy]: sortOrder } : { createdAt: sortOrder };
+    // Mapping sort key
+    let orderBy: any = { [sortBy]: sortOrder };
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
@@ -65,9 +66,11 @@ export class UsersService {
 
   // Toggle isActive — admin không thể tự disable mình
   async toggleStatus(targetId: string, requesterId: string) {
+    // Chống tự vô hiệu hóa bản thân (Backend Level)
     if (targetId === requesterId) {
       throw new ForbiddenException('Admin không thể tự vô hiệu hóa tài khoản của mình');
     }
+    
     const user = await this.prisma.user.findUnique({ where: { id: targetId } });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 

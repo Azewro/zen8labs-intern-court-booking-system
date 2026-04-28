@@ -17,8 +17,18 @@ export class BookingsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
-    return this.bookingsService.findAllForAdmin(page ? +page : 1, limit ? +limit : 10, search);
+    return this.bookingsService.findAllForAdmin({
+      page: page ? +page : 1,
+      limit: limit ? +limit : 10,
+      search,
+      status,
+      sortBy,
+      sortOrder,
+    });
   }
 
   // Tiêu chí 7: Xem lịch trống của sân (Public, truyền date để tra cứu)

@@ -38,8 +38,7 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   async googleAuthRedirect(@Req() req: any, @Res() res: any) {
     const data = await this.authService.googleLogin(req);
-    // Chuyển hướng người dùng về Frontend kèm theo Token trên URL
-    return res.redirect(`http://localhost:3000/login?token=${data.access_token}&role=${data.role}`);
+    return res.redirect(`http://localhost:3000/login?token=${data.access_token}&role=${data.role}&email=${data.email}`);
   }
 
   @Patch('change-password')

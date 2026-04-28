@@ -18,14 +18,8 @@ interface UserRow {
   createdAt: string;
 }
 
-type SortKey = "fullName" | "email" | "role" | "createdAt" | "isActive";
+type SortKey = "fullName" | "email" | "role" | "isActive" | "createdAt";
 type SortOrder = "asc" | "desc";
-
-const ROLE_OPTIONS = [
-  { value: "ALL", label: "Tất cả vai trò" },
-  { value: "USER", label: "Khách hàng" },
-  { value: "ADMIN", label: "Admin" },
-];
 
 function SortIcon({ col, sortBy, sortOrder }: { col: SortKey; sortBy: SortKey; sortOrder: SortOrder }) {
   if (col !== sortBy) return <ChevronsUpDown size={14} className="text-slate-600" />;
@@ -33,20 +27,37 @@ function SortIcon({ col, sortBy, sortOrder }: { col: SortKey; sortBy: SortKey; s
 }
 
 export default function UsersPage() {
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState({ total: 0, page: 1, totalPages: 1 });
 
-  // Filters
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
-
-  // Sort
   const [sortBy, setSortBy] = useState<SortKey>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-
-  // Confirm modal
   const [confirmUser, setConfirmUser] = useState<UserRow | null>(null);
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("user_email");
+    if (savedEmail) {
+      setCurrentUserEmail(savedEmail);
+    } else {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        try {
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          const payload = JSON.parse(jsonPayload);
+          setCurrentUserEmail(payload.email);
+          localStorage.setItem("user_email", payload.email);
+        } catch (e) { console.error("Token decode error", e); }
+      }
+    }
+  }, []);
 
   const fetchUsers = useCallback(async (page = 1) => {
     setLoading(true);
@@ -81,49 +92,33 @@ export default function UsersPage() {
     } catch (e: any) { toast.error(e.response?.data?.message || "Lỗi"); }
   };
 
-  const thClass = (col: SortKey) =>
-    `p-4 font-medium text-left cursor-pointer select-none group hover:text-white transition-colors ${sortBy === col ? "text-teal-400" : "text-slate-400"}`;
+  const thClass = (col: SortKey) => `p-4 font-medium text-left cursor-pointer select-none group hover:text-white transition-colors ${sortBy === col ? "text-teal-400" : "text-slate-400"}`;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 text-transparent bg-clip-text">Quản lý Người dùng</h2>
         <p className="text-slate-400 mt-1">Xem, tìm kiếm và quản lý tài khoản khách hàng & admin.</p>
       </div>
 
-      {/* Filters */}
       <div className="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-5 flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-2 text-slate-400 font-medium text-sm">
-          <Filter size={16}/> Bộ lọc
-        </div>
-        {/* Search */}
-        <div className="flex-1 min-w-[220px] relative">
+        <div className="flex items-center gap-2 text-slate-400 font-medium text-sm"><Filter size={16}/> Bộ lọc</div>
+        <div className="flex-1 min-w-[280px] relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"/>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Tìm theo tên, email, SĐT..."
-            className="w-full bg-slate-800 border border-slate-700 focus:border-teal-500 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
-          />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm theo tên, email, SĐT..."
+            className="w-full bg-slate-800 border border-slate-700 focus:border-teal-500 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm focus:outline-none transition-all"/>
         </div>
-        {/* Role filter */}
-        <select
-          value={roleFilter}
-          onChange={e => setRoleFilter(e.target.value)}
-          className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-all"
-        >
-          {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+          className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500">
+          <option value="ALL">Tất cả vai trò</option>
+          <option value="ADMIN">Admin</option>
+          <option value="USER">Khách hàng</option>
         </select>
-        {/* Stats */}
-        <div className="ml-auto text-slate-400 text-sm">
-          Tổng: <span className="text-white font-semibold">{meta.total}</span> người dùng
-        </div>
+        <div className="text-slate-500 text-sm ml-auto">Tổng: <span className="text-white font-bold">{meta.total}</span> người dùng</div>
       </div>
 
-      {/* Table */}
-      <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/50 rounded-2xl overflow-hidden shadow-xl">
-        <table className="w-full text-left border-collapse">
+      <div className="bg-slate-900/40 border border-slate-800/50 rounded-2xl overflow-hidden shadow-xl overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[1000px]">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-900/60 text-sm uppercase tracking-wider">
               <th className={thClass("fullName")} onClick={() => handleSort("fullName")}>
@@ -147,125 +142,65 @@ export default function UsersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="p-10 text-center text-slate-500">
-                <div className="flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-teal-500"/></div>
-              </td></tr>
-            ) : users.length === 0 ? (
-              <tr><td colSpan={7} className="p-10 text-center text-slate-500">Không tìm thấy người dùng nào.</td></tr>
+              <tr><td colSpan={7} className="p-10 text-center text-slate-500"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-teal-500 mx-auto"/></td></tr>
             ) : users.map((u, idx) => (
-              <motion.tr key={u.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}
-                className={`border-b border-slate-800/50 transition-colors ${u.isActive ? "hover:bg-slate-800/20" : "bg-slate-900/60 opacity-60"}`}>
-                <td className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                      u.role === "ADMIN" ? "bg-purple-500/20 text-purple-400" : "bg-teal-500/20 text-teal-400"
-                    }`}>
-                      {u.fullName.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-white text-sm">{u.fullName}</p>
-                      {u.googleId && <p className="text-xs text-slate-500">🔗 Google</p>}
-                    </div>
-                  </div>
+              <motion.tr key={u.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}
+                className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors">
+                <td className="p-4 font-bold text-white text-sm">
+                   <div className="flex items-center gap-3">
+                     <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold ${u.role === 'ADMIN' ? 'bg-purple-500/20 text-purple-400' : 'bg-teal-500/20 text-teal-400'}`}>
+                       {u.fullName.charAt(0).toUpperCase()}
+                     </div>
+                     {u.fullName}
+                   </div>
                 </td>
                 <td className="p-4 text-slate-300 text-sm">{u.email}</td>
-                <td className="p-4 text-slate-400 text-sm">{u.phoneNumber || <span className="text-slate-600">—</span>}</td>
+                <td className="p-4 text-slate-400 text-sm">{u.phoneNumber || "—"}</td>
                 <td className="p-4">
-                  {u.role === "ADMIN" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                      <Shield size={11}/> Admin
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-700/50 text-slate-300 border border-slate-700">
-                      <User size={11}/> Khách hàng
-                    </span>
-                  )}
+                  {u.role === "ADMIN" ? 
+                    <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">ADMIN</span> :
+                    <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-slate-700/50 text-slate-300">USER</span>
+                  }
                 </td>
                 <td className="p-4">
-                  {u.isActive ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <UserCheck size={11}/> Hoạt động
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                      <UserX size={11}/> Vô hiệu hóa
-                    </span>
-                  )}
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border ${u.isActive ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20"}`}>
+                    {u.isActive ? "Hoạt động" : "Vô hiệu hóa"}
+                  </span>
                 </td>
-                <td className="p-4 text-slate-400 text-sm">
-                  {format(new Date(u.createdAt), "dd/MM/yyyy", { locale: vi })}
-                </td>
+                <td className="p-4 text-slate-400 text-sm">{format(new Date(u.createdAt), "dd/MM/yyyy", { locale: vi })}</td>
                 <td className="p-4 text-right">
-                  <button
-                    onClick={() => setConfirmUser(u)}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-all ${
-                      u.isActive
-                        ? "bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/20 text-rose-400"
-                        : "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20 text-emerald-400"
-                    }`}
-                  >
-                    {u.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
-                  </button>
+                  {u.email !== currentUserEmail ? (
+                    <button onClick={() => setConfirmUser(u)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${u.isActive ? "bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/20 text-rose-400" : "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20 text-emerald-400"}`}>
+                      {u.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
+                    </button>
+                  ) : <span className="text-[10px] text-teal-400 font-bold bg-teal-500/10 px-2 py-1 rounded-md">BẠN (ADMIN)</span>}
                 </td>
               </motion.tr>
             ))}
           </tbody>
         </table>
-
-        {/* Pagination */}
-        {meta.totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-slate-800">
-            <p className="text-sm text-slate-400">
-              Trang <span className="text-white font-semibold">{meta.page}</span> / {meta.totalPages}
-            </p>
-            <div className="flex gap-2">
-              {Array.from({ length: meta.totalPages }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => fetchUsers(p)}
-                  className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all ${
-                    p === meta.page ? "bg-teal-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-                  }`}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Confirm Modal */}
+      {meta.totalPages > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {Array.from({ length: meta.totalPages }, (_, i) => i + 1).map(p => (
+            <button key={p} onClick={() => fetchUsers(p)} className={`w-8 h-8 rounded-lg text-xs font-bold ${p === meta.page ? "bg-teal-500 text-white" : "bg-slate-800 text-slate-400"}`}>{p}</button>
+          ))}
+        </div>
+      )}
+
       <AnimatePresence>
         {confirmUser && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
-              className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center">
-              <div className={`h-14 w-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                confirmUser.isActive ? "bg-rose-500/10" : "bg-emerald-500/10"
-              }`}>
-                {confirmUser.isActive ? <UserX size={26} className="text-rose-400"/> : <UserCheck size={26} className="text-emerald-400"/>}
-              </div>
-              <h3 className="text-lg font-bold text-white mb-2">
-                {confirmUser.isActive ? "Vô hiệu hóa tài khoản?" : "Kích hoạt tài khoản?"}
-              </h3>
-              <p className="text-slate-400 text-sm mb-6">
-                {confirmUser.isActive
-                  ? `Người dùng "${confirmUser.fullName}" sẽ không thể đăng nhập sau khi bị vô hiệu hóa.`
-                  : `Người dùng "${confirmUser.fullName}" sẽ có thể đăng nhập và sử dụng hệ thống trở lại.`}
-              </p>
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+              <h3 className="text-lg font-bold text-white mb-2">{confirmUser.isActive ? "Vô hiệu hóa tài khoản?" : "Kích hoạt tài khoản?"}</h3>
+              <p className="text-slate-400 text-sm mb-6">Xác nhận thay đổi trạng thái cho <b>{confirmUser.fullName}</b>?</p>
               <div className="flex gap-3">
-                <button onClick={() => setConfirmUser(null)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition-all">
-                  Hủy
-                </button>
-                <button onClick={handleToggle} className={`flex-1 py-3 rounded-xl font-bold transition-all ${
-                  confirmUser.isActive
-                    ? "bg-rose-500 hover:bg-rose-400 text-white"
-                    : "bg-emerald-500 hover:bg-emerald-400 text-white"
-                }`}>
-                  {confirmUser.isActive ? "Vô hiệu hóa" : "Kích hoạt"}
-                </button>
+                <button onClick={() => setConfirmUser(null)} className="flex-1 py-2 bg-slate-800 text-white rounded-xl text-sm font-bold">Hủy</button>
+                <button onClick={handleToggle} className={`flex-1 py-2 rounded-xl text-sm font-bold text-white ${confirmUser.isActive ? "bg-rose-500" : "bg-emerald-500"}`}>Xác nhận</button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
