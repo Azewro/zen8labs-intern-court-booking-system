@@ -50,27 +50,14 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    // 1. Tìm user
     const user = await this.usersService.findByEmail(dto.email);
-    if (!user) {
-      throw new HttpException('Sai email hoặc mật khẩu', HttpStatus.UNAUTHORIZED);
-    }
-
-    // 2. So sánh mật khẩu
-    if (!user.password) {
-      throw new HttpException('Tài khoản này được đăng ký bằng Google. Vui lòng sử dụng Đăng nhập bằng Google.', HttpStatus.UNAUTHORIZED);
-    }
+    if (!user) throw new HttpException('Sai email hoặc mật khẩu', HttpStatus.UNAUTHORIZED);
+    if (!user.isActive) throw new HttpException('Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.', HttpStatus.FORBIDDEN);
+    if (!user.password) throw new HttpException('Tài khoản này được đăng ký bằng Google. Vui lòng sử dụng Đăng nhập bằng Google.', HttpStatus.UNAUTHORIZED);
     const isMatch = await bcrypt.compare(dto.password, user.password);
-    if (!isMatch) {
-      throw new HttpException('Sai email hoặc mật khẩu', HttpStatus.UNAUTHORIZED);
-    }
-
-    // 3. Cấp Token JWT
+    if (!isMatch) throw new HttpException('Sai email hoặc mật khẩu', HttpStatus.UNAUTHORIZED);
     const payload = { sub: user.id, email: user.email, role: user.role };
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: { role: user.role }
-    };
+    return { access_token: this.jwtService.sign(payload), user: { role: user.role } };
   }
 
   async validateGoogleUser(details: any) {
@@ -80,8 +67,11 @@ export class AuthService {
         email: details.email,
         fullName: `${details.firstName} ${details.lastName}`,
         googleId: details.googleId,
-        password: null, // Login bằng Google không cần pass
+        password: null,
       });
+    }
+    if (!user.isActive) {
+      throw new HttpException('Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.', HttpStatus.FORBIDDEN);
     }
     return user;
   }

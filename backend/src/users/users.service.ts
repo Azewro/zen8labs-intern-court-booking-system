@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -19,5 +19,63 @@ export class UsersService {
 
   async update(id: string, data: any) {
     return this.prisma.user.update({ where: { id }, data });
+  }
+
+  // Admin: list all users with search, sort, pagination
+  async findAll(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    const { page = 1, limit = 10, search, role, sortBy = 'createdAt', sortOrder = 'desc' } = params;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { fullName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phoneNumber: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    if (role && role !== 'ALL') where.role = role;
+
+    const allowedSort = ['fullName', 'email', 'role', 'createdAt', 'isActive'];
+    const orderBy = allowedSort.includes(sortBy) ? { [sortBy]: sortOrder } : { createdAt: sortOrder };
+
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        orderBy,
+        select: {
+          id: true, email: true, fullName: true, phoneNumber: true,
+          role: true, isActive: true, googleId: true, createdAt: true,
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { data: users, meta: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / limit) } };
+  }
+
+  // Toggle isActive — admin không thể tự disable mình
+  async toggleStatus(targetId: string, requesterId: string) {
+    if (targetId === requesterId) {
+      throw new ForbiddenException('Admin không thể tự vô hiệu hóa tài khoản của mình');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: targetId } });
+    if (!user) throw new NotFoundException('Không tìm thấy người dùng');
+
+    const updated = await this.prisma.user.update({
+      where: { id: targetId },
+      data: { isActive: !user.isActive },
+      select: { id: true, email: true, fullName: true, role: true, isActive: true },
+    });
+    return updated;
   }
 }

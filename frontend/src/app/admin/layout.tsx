@@ -53,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
             <Link href="/admin/users" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === '/admin/users' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
               <Users size={20} />
-              <span className="font-medium">Khách hàng</span>
+              <span className="font-medium">Người dùng</span>
             </Link>
           </nav>
         </div>
