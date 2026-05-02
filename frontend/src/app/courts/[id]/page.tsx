@@ -29,6 +29,8 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
   const [bookedSlots, setBookedSlots] = useState<{start: string, end: string}[]>([]);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "ONLINE">("CASH");
+  const [voucherCode, setVoucherCode] = useState("");
 
   // Lấy data Sân
   useEffect(() => {
@@ -118,7 +120,9 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
       await axiosInstance.post('/bookings', {
         courtId,
         startTime: startTimeIso,
-        endTime: endTimeIso
+        endTime: endTimeIso,
+        paymentMethod,
+        voucherCode: voucherCode.trim() || undefined
       });
       toast.success("Đặt sân thành công! Hãy chuẩn bị giày vợt nhé!");
       router.push('/profile/bookings'); // Chuyển tới trang lịch sử
@@ -162,14 +166,44 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
 
             {/* Bill Tạm tính */}
             <div className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-3xl p-6 border border-slate-800 shadow-xl">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center"><CreditCard className="mr-2 text-teal-400" /> Tạm tính</h3>
-              <div className="space-y-3 text-slate-300 border-b border-slate-800 pb-4 mb-4">
-                <div className="flex justify-between"><span>Giá mỗi giờ:</span> <span className="text-white font-medium">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(court.pricePerHour)}</span></div>
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center"><CreditCard className="mr-2 text-teal-400" /> Tạm tính & Thanh toán</h3>
+              
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Phương thức thanh toán</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => setPaymentMethod("CASH")}
+                      className={`py-2 px-3 rounded-xl border text-sm font-semibold transition-all ${paymentMethod === "CASH" ? "bg-teal-500/20 border-teal-500 text-teal-400" : "bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white"}`}>
+                      Tiền mặt (Tại sân)
+                    </button>
+                    <button 
+                      onClick={() => setPaymentMethod("ONLINE")}
+                      className={`py-2 px-3 rounded-xl border text-sm font-semibold transition-all ${paymentMethod === "ONLINE" ? "bg-teal-500/20 border-teal-500 text-teal-400" : "bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white"}`}>
+                      Ví Online (Giả lập)
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Mã Khuyến mãi (Voucher)</label>
+                  <input 
+                    type="text" 
+                    value={voucherCode} 
+                    onChange={e => setVoucherCode(e.target.value)}
+                    placeholder="Nhập mã (nếu có)"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-teal-500 transition-all uppercase"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 text-slate-300 border-t border-slate-800 pt-4 mb-4">
+                <div className="flex justify-between"><span>Giá gốc/giờ:</span> <span className="text-white font-medium">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(court.pricePerHour)}</span></div>
                 <div className="flex justify-between"><span>Thời gian thuê:</span> <span className="text-white font-medium">{selectedSlots.length / 2} giờ</span></div>
               </div>
               <div className="flex justify-between items-center mb-6">
-                <span className="text-lg text-slate-400">Tổng tiền:</span>
-                <span className="text-3xl font-bold text-teal-400">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice)}</span>
+                <span className="text-lg text-slate-400">Tạm tính (chưa trừ VC):</span>
+                <span className="text-2xl font-bold text-teal-400">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice)}</span>
               </div>
               <button 
                 onClick={handleBooking}
@@ -178,6 +212,9 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
               >
                 {isSubmitting ? "Đang xử lý..." : "Xác nhận đặt sân"}
               </button>
+              {paymentMethod === "ONLINE" && (
+                <p className="text-xs text-center text-slate-500 mt-3">* Giả lập thanh toán: Bạn sẽ bị trừ tiền ngay lập tức (Mock).</p>
+              )}
             </div>
           </div>
 

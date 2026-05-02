@@ -82,6 +82,27 @@ export default function AdminBookingsPage() {
 
   const thClass = (key: SortKey) => `p-5 font-medium cursor-pointer select-none group hover:text-white transition-colors ${sortBy === key ? "text-teal-400" : "text-slate-400"}`;
 
+  const handleApprove = async (id: string) => {
+    try {
+      await axiosInstance.patch(`/bookings/${id}/approve`);
+      toast.success("Đã duyệt lịch đặt sân!");
+      fetchBookings();
+    } catch (error) {
+      toast.error("Lỗi khi duyệt lịch");
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn từ chối lịch này?")) return;
+    try {
+      await axiosInstance.patch(`/bookings/${id}/reject`);
+      toast.success("Đã từ chối lịch đặt sân!");
+      fetchBookings();
+    } catch (error) {
+      toast.error("Lỗi khi từ chối lịch");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -126,9 +147,9 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/50 rounded-2xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+      <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/50 rounded-2xl shadow-xl overflow-visible">
+        <div className="overflow-x-auto pb-10 -mb-10">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-900/60 text-sm uppercase tracking-wider">
                 <th className={thClass("user.fullName")} onClick={() => handleSort("user.fullName")}>
@@ -143,18 +164,19 @@ export default function AdminBookingsPage() {
                 <th className={thClass("totalPrice")} onClick={() => handleSort("totalPrice")}>
                   <span className="flex items-center gap-1.5">Tổng tiền <SortIcon col="totalPrice" sortBy={sortBy} sortOrder={sortOrder}/></span>
                 </th>
-                <th className={`${thClass("status")} text-right`} onClick={() => handleSort("status")}>
-                  <span className="flex items-center justify-end gap-1.5">Trạng thái <SortIcon col="status" sortBy={sortBy} sortOrder={sortOrder}/></span>
+                <th className={`${thClass("status")} text-center`} onClick={() => handleSort("status")}>
+                  <span className="flex items-center justify-center gap-1.5">Trạng thái <SortIcon col="status" sortBy={sortBy} sortOrder={sortOrder}/></span>
                 </th>
+                <th className="p-5 font-medium text-slate-400 text-center w-[150px]">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="p-16 text-center text-slate-500">
+                <tr><td colSpan={6} className="p-16 text-center text-slate-500">
                   <div className="flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-teal-500"></div></div>
                 </td></tr>
               ) : bookings.length === 0 ? (
-                <tr><td colSpan={5} className="p-16 text-center text-slate-500">
+                <tr><td colSpan={6} className="p-16 text-center text-slate-500">
                   <Clock size={40} className="mx-auto mb-3 opacity-30 text-teal-400" />
                   Không tìm thấy lịch đặt nào phù hợp.
                 </td></tr>
@@ -178,9 +200,20 @@ export default function AdminBookingsPage() {
                     </td>
                     <td className="p-5 font-bold text-white text-sm">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(b.totalPrice)}
+                      <p className="text-[10px] text-slate-500 mt-1">{b.paymentMethod === 'ONLINE' ? 'ONLINE' : 'TIỀN MẶT'}</p>
                     </td>
-                    <td className="p-5 text-right">
+                    <td className="p-5 text-center">
                       {renderStatus(b.status)}
+                    </td>
+                    <td className="p-5 text-center">
+                      {b.status === "PENDING" ? (
+                        <div className="flex gap-2 justify-center">
+                          <button onClick={() => handleApprove(b.id)} className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold rounded-lg transition-colors">Duyệt</button>
+                          <button onClick={() => handleReject(b.id)} className="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold rounded-lg transition-colors">Từ chối</button>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-xs">-</span>
+                      )}
                     </td>
                   </motion.tr>
                 ))

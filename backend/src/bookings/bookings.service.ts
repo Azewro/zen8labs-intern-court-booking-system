@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class BookingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mailService: MailService
+  ) {}
 
   // Tiêu chí 7: Lấy danh sách booking của 1 sân trong 1 ngày (để frontend khóa giờ)
   async getCourtSchedule(courtId: string, date: string) {
@@ -26,76 +30,112 @@ export class BookingsService {
     return bookings;
   }
 
-  // Tiêu chí 8: Đặt sân (Có chống trùng lịch bằng Transaction)
+  // Đặt sân với Khung giá động, Voucher, Thanh toán và Gửi Email
   async create(userId: string, dto: CreateBookingDto) {
     const start = new Date(dto.startTime);
     const end = new Date(dto.endTime);
     const now = new Date();
 
-    // Ràng buộc 1: Không đặt quá khứ
-    if (start < now) {
-      throw new BadRequestException('Không thể đặt sân trong quá khứ.');
-    }
-
-    // Ràng buộc 2: Tối đa 14 ngày tới
+    if (start < now) throw new BadRequestException('Không thể đặt sân trong quá khứ.');
+    
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + 14);
-    if (start > maxDate) {
-      throw new BadRequestException('Chỉ được đặt sân trước tối đa 14 ngày.');
-    }
+    if (start > maxDate) throw new BadRequestException('Chỉ được đặt sân trước tối đa 14 ngày.');
 
-    // Ràng buộc 3: Thời lượng 1-4 tiếng
     const durationMs = end.getTime() - start.getTime();
     const durationHours = durationMs / (1000 * 60 * 60);
     if (durationHours < 1 || durationHours > 4) {
       throw new BadRequestException('Thời gian đặt mỗi lượt phải từ 1 đến 4 tiếng.');
     }
 
-    return await this.prisma.$transaction(async (tx) => {
-      // 1. Lấy thông tin sân để tính tiền và kiểm tra trạng thái
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Kiểm tra Sân
       const court = await tx.court.findUnique({ where: { id: dto.courtId } });
-      if (!court || court.deletedAt) {
-        throw new NotFoundException('Sân không tồn tại hoặc đã đóng cửa.');
-      }
-      if (court.status === 'SUSPENDED') {
-        throw new BadRequestException('Sân này đang tạm ngừng nhận đặt lịch. Vui lòng chọn sân khác.');
-      }
-      if (court.status === 'CLOSED') {
-        throw new BadRequestException('Sân này đã đóng cửa vĩnh viễn.');
-      }
+      if (!court || court.deletedAt) throw new NotFoundException('Sân không tồn tại hoặc đã đóng cửa.');
+      if (court.status === 'SUSPENDED') throw new BadRequestException('Sân này đang tạm ngừng nhận đặt lịch.');
+      if (court.status === 'CLOSED') throw new BadRequestException('Sân này đã đóng cửa vĩnh viễn.');
 
-      // 2. Chống Double Booking (Thuật toán Overlap: S_new < E_old AND E_new > S_old)
+      // 2. Chống Double Booking
       const overlappingBookings = await tx.booking.findMany({
         where: {
           courtId: dto.courtId,
           status: { in: ['PENDING', 'CONFIRMED'] },
-          AND: [
-            { startTime: { lt: end } },
-            { endTime: { gt: start } }
-          ]
+          AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }]
         }
       });
+      if (overlappingBookings.length > 0) throw new BadRequestException('Khoảng thời gian này đã có người đặt.');
 
-      if (overlappingBookings.length > 0) {
-        throw new BadRequestException('Rất tiếc! Khoảng thời gian này vừa có người nhanh tay đặt mất rồi.');
+      // 3. Tính tiền theo khung giờ động (Dynamic Pricing)
+      let calculatedPrice = 0;
+      let currentCheckTime = new Date(start);
+      
+      while (currentCheckTime < end) {
+        const hour = currentCheckTime.getHours();
+        // Nếu có cấu hình giờ cao điểm và giờ hiện tại nằm trong khung đó
+        if (court.peakStartHour != null && court.peakEndHour != null && court.peakPricePerHour != null) {
+          if (hour >= court.peakStartHour && hour < court.peakEndHour) {
+            calculatedPrice += Number(court.peakPricePerHour) * 0.5; // Tính mỗi 30 phút (0.5h) cho chính xác
+          } else {
+            calculatedPrice += Number(court.pricePerHour) * 0.5;
+          }
+        } else {
+          calculatedPrice += Number(court.pricePerHour) * 0.5;
+        }
+        currentCheckTime.setMinutes(currentCheckTime.getMinutes() + 30); // Tăng từng 30 phút
       }
 
-      // 3. Tính tiền tự động ở Backend
-      const totalPrice = Number(court.pricePerHour) * durationHours;
+      // 4. Xử lý Voucher
+      let appliedVoucherId = null;
+      if (dto.voucherCode) {
+        const voucher = await tx.voucher.findUnique({ where: { code: dto.voucherCode } });
+        if (!voucher) throw new NotFoundException('Mã voucher không tồn tại.');
+        if (!voucher.isActive) throw new BadRequestException('Mã voucher đã bị vô hiệu hóa.');
+        if (voucher.validTo < now) throw new BadRequestException('Mã voucher đã hết hạn.');
+        
+        let discount = calculatedPrice * (voucher.discountPercent / 100);
+        if (voucher.maxDiscount && discount > Number(voucher.maxDiscount)) {
+          discount = Number(voucher.maxDiscount);
+        }
+        calculatedPrice -= discount;
+        appliedVoucherId = voucher.id;
+      }
 
-      // 4. Lưu vào Database
-      return await tx.booking.create({
+      // 5. Xác định phương thức & trạng thái thanh toán (Giả lập)
+      const pMethod = dto.paymentMethod || 'CASH';
+      const pStatus = pMethod === 'ONLINE' ? 'PAID' : 'UNPAID';
+
+      // 6. Lưu Booking
+      const booking = await tx.booking.create({
         data: {
           userId,
           courtId: dto.courtId,
           startTime: start,
           endTime: end,
-          totalPrice,
+          totalPrice: calculatedPrice,
           status: 'PENDING',
-          paymentStatus: 'UNPAID',
-        }
+          paymentStatus: pStatus,
+          paymentMethod: pMethod,
+          voucherId: appliedVoucherId,
+        },
+        include: { user: true, court: true }
       });
+
+      return booking;
     });
+
+    // 7. Gửi Email thông báo không block luồng chính
+    this.mailService.sendBookingConfirmation({
+      to: result.user.email,
+      customerName: result.user.fullName,
+      courtName: result.court.name,
+      startTime: result.startTime,
+      endTime: result.endTime,
+      totalPrice: Number(result.totalPrice),
+      paymentMethod: result.paymentMethod,
+      paymentStatus: result.paymentStatus,
+    });
+
+    return result;
   }
 
   // Tiêu chí 10: Xem lịch sử đặt sân của bản thân
@@ -137,6 +177,21 @@ export class BookingsService {
     return this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: 'CANCELLED' }
+    });
+  }
+
+  // Admin Duyệt / Từ chối
+  async updateBookingStatus(bookingId: string, status: 'CONFIRMED' | 'CANCELLED') {
+    const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) throw new NotFoundException('Không tìm thấy phiếu đặt sân');
+    
+    if (booking.status === 'CANCELLED') {
+      throw new BadRequestException('Phiếu đặt sân này đã bị hủy, không thể thay đổi trạng thái nữa.');
+    }
+
+    return this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { status }
     });
   }
 

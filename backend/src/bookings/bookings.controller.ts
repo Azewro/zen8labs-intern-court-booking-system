@@ -62,4 +62,20 @@ export class BookingsController {
   cancel(@Req() req: any, @Param('id') bookingId: string) {
     return this.bookingsService.cancel(req.user.id, bookingId);
   }
+
+  // Admin: Duyệt phiếu đặt sân
+  @Patch(':id/approve')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  approveBooking(@Param('id') bookingId: string) {
+    return this.bookingsService.updateBookingStatus(bookingId, 'CONFIRMED');
+  }
+
+  // Admin: Từ chối phiếu đặt sân
+  @Patch(':id/reject')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('ADMIN')
+  rejectBooking(@Param('id') bookingId: string) {
+    return this.bookingsService.updateBookingStatus(bookingId, 'CANCELLED');
+  }
 }

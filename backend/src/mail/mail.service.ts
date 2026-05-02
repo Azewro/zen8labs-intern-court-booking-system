@@ -98,4 +98,64 @@ export class MailService {
       `,
     }).catch(err => console.error(`Lỗi gửi mail [${priority}] tới ${to}:`, err));
   }
+  async sendBookingConfirmation(params: {
+    to: string;
+    customerName: string;
+    courtName: string;
+    startTime: Date;
+    endTime: Date;
+    totalPrice: number;
+    paymentMethod: string;
+    paymentStatus: string;
+  }) {
+    const { to, customerName, courtName, startTime, endTime, totalPrice, paymentMethod, paymentStatus } = params;
+    const timeStr = `${format(startTime, 'HH:mm')} - ${format(endTime, 'HH:mm')}`;
+    const dateStr = format(startTime, "EEEE, dd/MM/yyyy", { locale: vi });
+    const formattedPrice = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(totalPrice);
+
+    await this.transporter.sendMail({
+      from: `"Zen8Labs Court Booking" <${process.env.SMTP_USER}>`,
+      to,
+      subject: `✅ Xác nhận đặt sân "${courtName}" thành công`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #0f766e; text-align: center;">Xác nhận đặt sân</h2>
+          <p>Xin chào <strong>${customerName}</strong>,</p>
+          <p>Cảm ơn bạn đã sử dụng dịch vụ của Zen8Labs Court Booking. Dưới đây là thông tin lịch đặt sân của bạn:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 12px; font-weight: bold; width: 40%;">Sân:</td>
+              <td style="padding: 12px;">${courtName}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 12px; font-weight: bold;">Ngày đá:</td>
+              <td style="padding: 12px; color: #0f766e; font-weight: bold;">${dateStr}</td>
+            </tr>
+            <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 12px; font-weight: bold;">Thời gian:</td>
+              <td style="padding: 12px; color: #0f766e; font-weight: bold;">${timeStr}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 12px; font-weight: bold;">Tổng tiền:</td>
+              <td style="padding: 12px; font-size: 16px; color: #dc2626; font-weight: bold;">${formattedPrice}</td>
+            </tr>
+            <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 12px; font-weight: bold;">Phương thức:</td>
+              <td style="padding: 12px;">${paymentMethod === 'ONLINE' ? 'Thanh toán trực tuyến (Đã thanh toán)' : 'Thanh toán tại sân (Chờ duyệt)'}</td>
+            </tr>
+          </table>
+
+          <p style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px;color:#92400e;">
+            <strong>Lưu ý:</strong> Vui lòng có mặt trước giờ đá 10 phút. Nếu cần hủy lịch, hãy thực hiện trên hệ thống trước giờ đá ít nhất 2 tiếng.
+          </p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile" style="background-color: #14b8a6; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px;">Xem lịch của tôi</a>
+          </div>
+          <p style="color: #64748b; font-size: 12px; text-align: center;">Zen8Labs Court Booking - Hẹn gặp bạn tại sân!</p>
+        </div>
+      `,
+    }).catch(err => console.error('Lỗi gửi mail xác nhận đặt sân:', err));
+  }
 }

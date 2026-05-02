@@ -44,7 +44,10 @@ export default function CourtsPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: "", location: "", pricePerHour: "" });
+  const [formData, setFormData] = useState({ 
+    name: "", location: "", pricePerHour: "", 
+    peakPricePerHour: "", peakStartHour: "", peakEndHour: "" 
+  });
 
   // Filters & Sort
   const [search, setSearch] = useState("");
@@ -101,16 +104,35 @@ export default function CourtsPage() {
     else { setSortBy(key); setSortOrder("asc"); }
   };
 
-  const openModal = (court?: Court) => {
+  const openModal = (court?: any) => {
     setEditingId(court?.id ?? null);
-    setFormData(court ? { name: court.name, location: court.location, pricePerHour: court.pricePerHour.toString() } : { name: "", location: "", pricePerHour: "" });
+    setFormData(court ? { 
+      name: court.name, 
+      location: court.location, 
+      pricePerHour: court.pricePerHour?.toString() || "",
+      peakPricePerHour: court.peakPricePerHour?.toString() || "",
+      peakStartHour: court.peakStartHour?.toString() || "",
+      peakEndHour: court.peakEndHour?.toString() || ""
+    } : { 
+      name: "", location: "", pricePerHour: "",
+      peakPricePerHour: "", peakStartHour: "", peakEndHour: ""
+    });
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = { name: formData.name, location: formData.location, pricePerHour: Number(formData.pricePerHour) };
+      const payload: any = { 
+        name: formData.name, 
+        location: formData.location, 
+        pricePerHour: Number(formData.pricePerHour) 
+      };
+      
+      if (formData.peakPricePerHour) payload.peakPricePerHour = Number(formData.peakPricePerHour);
+      if (formData.peakStartHour) payload.peakStartHour = Number(formData.peakStartHour);
+      if (formData.peakEndHour) payload.peakEndHour = Number(formData.peakEndHour);
+
       if (editingId) {
         await axiosInstance.patch(`/courts/${editingId}`, payload);
         toast.success("Cập nhật sân thành công!");
@@ -223,9 +245,10 @@ export default function CourtsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/50 rounded-2xl overflow-hidden shadow-xl">
-        <table className="w-full text-left border-collapse">
-          <thead>
+      <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800/50 rounded-2xl shadow-xl overflow-visible">
+        <div className="overflow-x-auto pb-32 -mb-32"> {/* Thêm padding bottom để không bị cắt dropdown */}
+          <table className="w-full text-left border-collapse">
+            <thead>
             <tr className="border-b border-slate-800 bg-slate-900/60 text-sm uppercase tracking-wider">
               <th className={thClass("name")} onClick={() => handleSort("name")}>
                 <span className="flex items-center gap-1.5">Tên sân <SortIcon col="name" sortBy={sortBy} sortOrder={sortOrder}/></span>
@@ -301,6 +324,7 @@ export default function CourtsPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* ===== MODALS (Step 1, Step 2, Edit) - Giữ nguyên logic cũ nhưng UI đồng bộ ===== */}
@@ -353,22 +377,44 @@ export default function CourtsPage() {
                 <h3 className="text-xl font-bold text-white">{editingId ? "Chỉnh sửa sân" : "Tạo sân mới"}</h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
               </div>
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">Tên sân</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"/>
+                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">Tên sân</label>
+                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">Vị trí</label>
-                  <input required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"/>
+                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">Vị trí</label>
+                  <input required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">Giá / Giờ (VNĐ)</label>
-                  <input required type="number" value={formData.pricePerHour} onChange={e => setFormData({...formData, pricePerHour: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20"/>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-slate-300 mb-1.5">Giá / Giờ (Gốc) - VNĐ</label>
+                    <input required type="number" value={formData.pricePerHour} onChange={e => setFormData({...formData, pricePerHour: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
+                  </div>
+                  
+                  <div className="col-span-2 pt-3 border-t border-slate-800">
+                    <p className="text-sm font-bold text-teal-400 mb-3 flex items-center gap-2"><Star size={16}/> Khung giá Giờ vàng (Tùy chọn)</p>
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Giá Giờ vàng / Giờ (VNĐ)</label>
+                    <input type="number" value={formData.peakPricePerHour} onChange={e => setFormData({...formData, peakPricePerHour: e.target.value})} placeholder="Để trống nếu không có" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Bắt đầu (Giờ)</label>
+                    <input type="number" min="0" max="23" value={formData.peakStartHour} onChange={e => setFormData({...formData, peakStartHour: e.target.value})} placeholder="VD: 17" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Kết thúc (Giờ)</label>
+                    <input type="number" min="0" max="23" value={formData.peakEndHour} onChange={e => setFormData({...formData, peakEndHour: e.target.value})} placeholder="VD: 21" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
+                  </div>
                 </div>
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-slate-800 text-slate-300 rounded-xl font-semibold">Hủy</button>
-                  <button type="submit" className="flex-1 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl font-bold">Lưu</button>
+
+                <div className="flex gap-3 pt-4">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition-colors">Hủy</button>
+                  <button type="submit" className="flex-1 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white rounded-xl font-bold transition-all shadow-lg">Lưu Sân</button>
                 </div>
               </form>
             </motion.div>

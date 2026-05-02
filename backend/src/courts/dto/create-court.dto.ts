@@ -20,4 +20,19 @@ export class CreateCourtDto {
   @IsNumber()
   @Min(0, { message: 'Giá tiền phải lớn hơn hoặc bằng 0' })
   pricePerHour: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  peakPricePerHour?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  peakStartHour?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  peakEndHour?: number;
 }

@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!token || role !== "ADMIN") {
       router.push("/login");
     } else if (pathname === "/admin") {
-      router.push("/admin/courts");
+      router.push("/admin/analytics");
     }
   }, [router, pathname]);
 
@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <nav className="space-y-2">
-            <Link href="/admin" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === '/admin' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+            <Link href="/admin/analytics" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === '/admin/analytics' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
               <LayoutDashboard size={20} />
               <span className="font-medium">Dashboard</span>
             </Link>
@@ -50,6 +50,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link href="/admin/bookings" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === '/admin/bookings' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
               <CalendarDays size={20} />
               <span className="font-medium">Lịch Đặt Sân</span>
+            </Link>
+            <Link href="/admin/vouchers" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === '/admin/vouchers' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
+              <UserCircle size={20} />
+              <span className="font-medium">Khuyến mãi</span>
             </Link>
             <Link href="/admin/users" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${pathname === '/admin/users' ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20 shadow-inner' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
               <Users size={20} />

@@ -22,6 +22,11 @@ enum PaymentStatus {
   PAID
 }
 
+enum PaymentMethod {
+  CASH
+  ONLINE
+}
+
 model User {
   id          String    @id @default(uuid())
   email       String    @unique
@@ -47,39 +52,65 @@ enum CourtStatus {
 }
 
 model Court {
-  id            String      @id @default(uuid())
-  name          String
-  location      String
-  description   String?     @db.Text
-  imageUrl      String?     @map("image_url")
-  pricePerHour  Decimal     @map("price_per_hour") @db.Decimal(10, 2)
-  status        CourtStatus @default(ACTIVE)
+  id                String      @id @default(uuid())
+  name              String
+  location          String
+  description       String?     @db.Text
+  imageUrl          String?     @map("image_url")
+  pricePerHour      Decimal     @map("price_per_hour") @db.Decimal(10, 2)
   
-  deletedAt     DateTime?   @map("deleted_at")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  // Khung giá động (Peak Hours Pricing)
+  peakPricePerHour  Decimal?    @map("peak_price_per_hour") @db.Decimal(10, 2)
+  peakStartHour     Int?        @map("peak_start_hour") // Ví dụ: 17 (5 PM)
+  peakEndHour       Int?        @map("peak_end_hour")   // Ví dụ: 21 (9 PM)
 
-  bookings      Booking[]
+  status            CourtStatus @default(ACTIVE)
+  
+  deletedAt         DateTime?   @map("deleted_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  bookings          Booking[]
 
   @@map("courts")
+}
+
+model Voucher {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  discountPercent Int       @map("discount_percent") // e.g., 10 for 10%
+  maxDiscount     Decimal?  @map("max_discount") @db.Decimal(10, 2)
+  validFrom       DateTime  @default(now()) @map("valid_from")
+  validTo         DateTime  @map("valid_to")
+  isActive        Boolean   @default(true) @map("is_active")
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  
+  bookings        Booking[]
+
+  @@map("vouchers")
 }
 
 model Booking {
   id            String        @id @default(uuid())
   userId        String        @map("user_id")
   courtId       String        @map("court_id")
+  voucherId     String?       @map("voucher_id")
   
   startTime     DateTime      @map("start_time")
   endTime       DateTime      @map("end_time")
   totalPrice    Decimal       @map("total_price") @db.Decimal(10, 2)
+  
   status        BookingStatus @default(PENDING)
   paymentStatus PaymentStatus @default(UNPAID) @map("payment_status")
+  paymentMethod PaymentMethod @default(CASH) @map("payment_method")
   
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
   user          User          @relation(fields: [userId], references: [id])
   court         Court         @relation(fields: [courtId], references: [id])
+  voucher       Voucher?      @relation(fields: [voucherId], references: [id])
 
   @@map("bookings")
 }
