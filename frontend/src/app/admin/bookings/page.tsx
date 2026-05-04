@@ -30,16 +30,15 @@ export default function AdminBookingsPage() {
   const [sortBy, setSortBy] = useState<SortKey>("startTime");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       // Backend supports search, we'll handle sorting/filter on backend if supported, or frontend if not
       const params = new URLSearchParams({
         page: String(page),
         limit: "10",
         ...(search && { search }),
         ...(statusFilter !== "ALL" && { status: statusFilter }),
-        // Assuming backend will eventually support these, otherwise we'll sort frontend
         sortBy, 
         sortOrder
       });
@@ -47,23 +46,29 @@ export default function AdminBookingsPage() {
       const res = await axiosInstance.get(`/bookings?${params}`);
       let data = res.data.data;
 
-      // Note: If backend doesn't support sortBy yet, we do a fallback sort here
-      // But based on our current backend, we should update it to support these.
-      // For now, let's keep it simple.
-
       setBookings(data);
       setTotalPages(res.data.meta.totalPages);
       setMeta(res.data.meta);
     } catch (error) {
-      toast.error("Lỗi khi tải danh sách lịch đặt");
+      if (showLoading) toast.error("Lỗi khi tải danh sách lịch đặt");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [page, search, statusFilter, sortBy, sortOrder]);
 
   useEffect(() => {
-    const handler = setTimeout(() => fetchBookings(), 400);
-    return () => clearTimeout(handler);
+    // Gọi API lần đầu tiên (có loading mượt mà)
+    const handler = setTimeout(() => fetchBookings(true), 400);
+    
+    // Tự động fetch lại ngầm mỗi 6 giây (Auto Polling)
+    const interval = setInterval(() => {
+      fetchBookings(false); // Gọi ngầm, không bật Loading UI
+    }, 6000);
+
+    return () => {
+      clearTimeout(handler);
+      clearInterval(interval);
+    };
   }, [fetchBookings]);
 
   const handleSort = (key: SortKey) => {

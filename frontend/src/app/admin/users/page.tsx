@@ -59,8 +59,8 @@ export default function UsersPage() {
     }
   }, []);
 
-  const fetchUsers = useCallback(async (page = 1) => {
-    setLoading(true);
+  const fetchUsers = useCallback(async (page = 1, showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const params = new URLSearchParams({
         page: String(page), limit: "10",
@@ -71,11 +71,20 @@ export default function UsersPage() {
       const res = await axiosInstance.get(`/users?${params}`);
       setUsers(res.data.data);
       setMeta(res.data.meta);
-    } catch { toast.error("Lỗi khi tải danh sách người dùng"); }
-    finally { setLoading(false); }
+    } catch { 
+      if (showLoading) toast.error("Lỗi khi tải danh sách người dùng"); 
+    } finally { 
+      if (showLoading) setLoading(false); 
+    }
   }, [search, roleFilter, sortBy, sortOrder]);
 
-  useEffect(() => { fetchUsers(1); }, [fetchUsers]);
+  useEffect(() => { 
+    fetchUsers(meta.page, true); 
+    const interval = setInterval(() => {
+      fetchUsers(meta.page, false);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [fetchUsers, meta.page]);
 
   const handleSort = (col: SortKey) => {
     if (sortBy === col) setSortOrder(o => o === "asc" ? "desc" : "asc");

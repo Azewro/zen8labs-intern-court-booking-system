@@ -87,8 +87,21 @@ export class BookingsService {
       // 4. Xử lý Voucher
       let appliedVoucherId = null;
       if (dto.voucherCode) {
-        const voucher = await tx.voucher.findUnique({ where: { code: dto.voucherCode } });
-        if (!voucher) throw new NotFoundException('Mã voucher không tồn tại.');
+        const normalizedCode = dto.voucherCode.trim().toUpperCase();
+        console.log(`[DEBUG] Searching for voucher: "${normalizedCode}"`);
+        const voucher = await tx.voucher.findFirst({ 
+          where: { 
+            code: {
+              equals: normalizedCode,
+              mode: 'insensitive'
+            }
+          } 
+        });
+        if (!voucher) {
+          console.log(`[DEBUG] Voucher "${normalizedCode}" NOT FOUND in DB.`);
+          throw new NotFoundException(`Mã voucher "${normalizedCode}" không tồn tại trên hệ thống.`);
+        }
+        console.log(`[DEBUG] Voucher found: ${voucher.code} (ID: ${voucher.id})`);
         if (!voucher.isActive) throw new BadRequestException('Mã voucher đã bị vô hiệu hóa.');
         if (voucher.validTo < now) throw new BadRequestException('Mã voucher đã hết hạn.');
         
@@ -111,7 +124,7 @@ export class BookingsService {
           courtId: dto.courtId,
           startTime: start,
           endTime: end,
-          totalPrice: calculatedPrice,
+          totalPrice: Math.round(calculatedPrice),
           status: 'PENDING',
           paymentStatus: pStatus,
           paymentMethod: pMethod,
@@ -136,6 +149,74 @@ export class BookingsService {
     });
 
     return result;
+  }
+
+  // Hàm chuyên biệt để tính giá (Preview) cho Frontend
+  async calculatePrice(dto: CreateBookingDto) {
+    const start = new Date(dto.startTime);
+    const end = new Date(dto.endTime);
+    const now = new Date();
+
+    if (start < now) throw new BadRequestException('Không thể đặt sân trong quá khứ.');
+
+    const court = await this.prisma.court.findUnique({ where: { id: dto.courtId } });
+    if (!court || court.deletedAt) throw new NotFoundException('Sân không tồn tại hoặc đã đóng cửa.');
+
+    let originalPrice = 0;
+    let calculatedPrice = 0;
+    let currentCheckTime = new Date(start);
+    
+    while (currentCheckTime < end) {
+      const hour = currentCheckTime.getHours();
+      originalPrice += Number(court.pricePerHour) * 0.5;
+
+      if (court.peakStartHour != null && court.peakEndHour != null && court.peakPricePerHour != null) {
+        if (hour >= court.peakStartHour && hour < court.peakEndHour) {
+          calculatedPrice += Number(court.peakPricePerHour) * 0.5;
+        } else {
+          calculatedPrice += Number(court.pricePerHour) * 0.5;
+        }
+      } else {
+        calculatedPrice += Number(court.pricePerHour) * 0.5;
+      }
+      currentCheckTime.setMinutes(currentCheckTime.getMinutes() + 30);
+    }
+
+    let discountAmount = 0;
+    let voucherError = null;
+    let appliedVoucherId = null;
+
+    if (dto.voucherCode) {
+      const normalizedCode = dto.voucherCode.trim().toUpperCase();
+      const voucher = await this.prisma.voucher.findFirst({ 
+        where: { code: { equals: normalizedCode, mode: 'insensitive' } } 
+      });
+      
+      if (!voucher) {
+        voucherError = `Mã voucher "${normalizedCode}" không tồn tại.`;
+      } else if (!voucher.isActive) {
+        voucherError = 'Mã voucher đã bị vô hiệu hóa.';
+      } else if (voucher.validTo < now) {
+        voucherError = 'Mã voucher đã hết hạn.';
+      } else {
+        discountAmount = calculatedPrice * (voucher.discountPercent / 100);
+        if (voucher.maxDiscount && discountAmount > Number(voucher.maxDiscount)) {
+          discountAmount = Number(voucher.maxDiscount);
+        }
+        appliedVoucherId = voucher.id;
+      }
+    }
+
+    const finalPrice = Math.max(0, calculatedPrice - discountAmount);
+
+    return {
+      originalPrice,
+      calculatedPrice,
+      discountAmount,
+      finalPrice: Math.round(finalPrice), // Làm tròn tránh số thập phân dư
+      voucherError,
+      appliedVoucherId
+    };
   }
 
   // Tiêu chí 10: Xem lịch sử đặt sân của bản thân

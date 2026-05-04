@@ -49,6 +49,13 @@ export class BookingsController {
     return this.bookingsService.create(req.user.id, createBookingDto);
   }
 
+  // Tiêu chí 11: Tính tiền trước khi đặt (Preview)
+  @Post('calculate')
+  @UseGuards(AuthGuard('jwt'))
+  calculatePrice(@Body() createBookingDto: CreateBookingDto) {
+    return this.bookingsService.calculatePrice(createBookingDto);
+  }
+
   // Tiêu chí 10: Xem lịch sử của bản thân (Tự check id trong token)
   @Get('my-bookings')
   @UseGuards(AuthGuard('jwt'))

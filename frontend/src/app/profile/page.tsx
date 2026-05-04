@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,13 +48,27 @@ function ProfileContent() {
       .then(res => { setUserInfo(res.data); setEditForm({ fullName: res.data.fullName || "", phoneNumber: res.data.phoneNumber || "" }); })
       .catch(() => toast.error("Không tải được thông tin"))
       .finally(() => setLoadingInfo(false));
-
-    setLoadingBookings(true);
-    axiosInstance.get("/bookings/my-bookings")
-      .then(res => setBookings(res.data))
-      .catch(() => {})
-      .finally(() => setLoadingBookings(false));
   }, [router]);
+
+  const fetchMyBookings = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoadingBookings(true);
+    try {
+      const res = await axiosInstance.get("/bookings/my-bookings");
+      setBookings(res.data);
+    } catch {
+      // Bỏ qua lỗi ngầm
+    } finally {
+      if (showLoading) setLoadingBookings(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMyBookings(true);
+    const interval = setInterval(() => {
+      fetchMyBookings(false);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [fetchMyBookings]);
 
   const handleSaveProfile = async () => {
     setSavingProfile(true);

@@ -64,9 +64,9 @@ export default function CourtsPage() {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchCourts = useCallback(async () => {
+  const fetchCourts = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       // Backend currently takes includeInactive, we filter frontend for now or update backend later
       const res = await axiosInstance.get("/courts?includeInactive=true");
       let data = res.data.data as Court[];
@@ -93,11 +93,20 @@ export default function CourtsPage() {
       });
 
       setCourts(data);
-    } catch { toast.error("Lỗi khi tải danh sách sân"); }
-    finally { setLoading(false); }
+    } catch { 
+      if (showLoading) toast.error("Lỗi khi tải danh sách sân"); 
+    } finally { 
+      if (showLoading) setLoading(false); 
+    }
   }, [search, statusFilter, sortBy, sortOrder]);
 
-  useEffect(() => { fetchCourts(); }, [fetchCourts]);
+  useEffect(() => {
+    fetchCourts(true);
+    const interval = setInterval(() => {
+      fetchCourts(false);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [fetchCourts]);
 
   const handleSort = (key: SortKey) => {
     if (sortBy === key) setSortOrder(o => o === "asc" ? "desc" : "asc");

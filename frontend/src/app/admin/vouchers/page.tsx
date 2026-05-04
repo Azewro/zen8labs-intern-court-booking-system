@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, X } from "lucide-react";
 import axiosInstance from "@/lib/axios";
 import toast from "react-hot-toast";
@@ -11,14 +11,24 @@ export default function VouchersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ code: "", discountPercent: "", maxDiscount: "", validTo: "" });
 
-  const fetchVouchers = () => {
-    setLoading(true);
+  const fetchVouchers = useCallback((showLoading = true) => {
+    if (showLoading) setLoading(true);
     axiosInstance.get("/vouchers").then(res => {
       setVouchers(res.data);
-    }).catch(() => toast.error("Lỗi tải voucher")).finally(() => setLoading(false));
-  };
+    }).catch(() => {
+      if (showLoading) toast.error("Lỗi tải voucher");
+    }).finally(() => {
+      if (showLoading) setLoading(false);
+    });
+  }, []);
 
-  useEffect(() => { fetchVouchers(); }, []);
+  useEffect(() => { 
+    fetchVouchers(true); 
+    const interval = setInterval(() => {
+      fetchVouchers(false);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [fetchVouchers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
