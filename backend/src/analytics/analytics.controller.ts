@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -11,7 +11,7 @@ export class AnalyticsController {
   @Get('dashboard')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
-  getDashboardStats() {
-    return this.analyticsService.getDashboardStats();
+  getDashboardStats(@Query('dateRange') dateRange?: string) {
+    return this.analyticsService.getDashboardStats(dateRange);
   }
 }
