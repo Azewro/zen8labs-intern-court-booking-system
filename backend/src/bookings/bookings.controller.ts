@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -18,6 +28,8 @@ export class BookingsController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('filterDate') filterDate?: string,
+    @Query('filterStartTime') filterStartTime?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
@@ -26,6 +38,8 @@ export class BookingsController {
       limit: limit ? +limit : 10,
       search,
       status,
+      filterDate,
+      filterStartTime,
       sortBy,
       sortOrder,
     });
@@ -59,8 +73,17 @@ export class BookingsController {
   // Tiêu chí 10: Xem lịch sử của bản thân (Tự check id trong token)
   @Get('my-bookings')
   @UseGuards(AuthGuard('jwt'))
-  getMyBookings(@Req() req: any) {
-    return this.bookingsService.getMyBookings(req.user.id);
+  getMyBookings(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.bookingsService.getMyBookings(req.user.id, {
+      page: page ? +page : 1,
+      limit: limit ? +limit : 10,
+      status,
+    });
   }
 
   // Tiêu chí 9: Hủy sân (Chỉ user của booking đó mới hủy được)
@@ -68,6 +91,13 @@ export class BookingsController {
   @UseGuards(AuthGuard('jwt'))
   cancel(@Req() req: any, @Param('id') bookingId: string) {
     return this.bookingsService.cancel(req.user.id, bookingId);
+  }
+
+  // Khách hàng bấm thanh toán lại
+  @Post(':id/pay-again')
+  @UseGuards(AuthGuard('jwt'))
+  payAgain(@Req() req: any, @Param('id') bookingId: string) {
+    return this.bookingsService.payAgain(req.user.id, bookingId);
   }
 
   // Admin: Duyệt phiếu đặt sân

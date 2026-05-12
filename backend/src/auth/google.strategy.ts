@@ -20,7 +20,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     // Tránh ETIMEDOUT khi Google trả về địa chỉ IPv6 mà máy không route được
     const oauth2 = (this as any)._oauth2;
     if (oauth2) {
-      oauth2._agent = new https.Agent({ family: 4 } as any);
+      oauth2._agent = new https.Agent({ family: 4 });
     }
   }
 

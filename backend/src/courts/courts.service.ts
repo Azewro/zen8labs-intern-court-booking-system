@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { CreateCourtDto } from './dto/create-court.dto';
@@ -16,7 +20,12 @@ export class CourtsService {
   }
 
   // Lấy danh sách sân (Admin thấy tất cả, User chỉ thấy ACTIVE & SUSPENDED)
-  async findAll(page: number = 1, limit: number = 10, search?: string, includeInactive: boolean = false) {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    includeInactive: boolean = false,
+  ) {
     const skip = (page - 1) * limit;
 
     const whereClause: any = includeInactive
@@ -31,16 +40,34 @@ export class CourtsService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.court.findMany({ where: whereClause, skip, take: Number(limit), orderBy: { createdAt: 'desc' } }),
+      this.prisma.court.findMany({
+        where: whereClause,
+        skip,
+        take: Number(limit),
+        orderBy: { createdAt: 'desc' },
+      }),
       this.prisma.court.count({ where: whereClause }),
     ]);
 
-    return { data, meta: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      meta: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: string) {
-    const court = await this.prisma.court.findFirst({ where: { id, deletedAt: null } });
-    if (!court) throw new NotFoundException('Không tìm thấy sân này hoặc đã bị đóng vĩnh viễn');
+    const court = await this.prisma.court.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!court)
+      throw new NotFoundException(
+        'Không tìm thấy sân này hoặc đã bị đóng vĩnh viễn',
+      );
     return court;
   }
 
@@ -74,7 +101,9 @@ export class CourtsService {
     const normal: typeof bookings = [];
 
     for (const b of bookings) {
-      const durationHours = (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / 3_600_000;
+      const durationHours =
+        (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) /
+        3_600_000;
       const isSoon = new Date(b.startTime) <= in24h;
       const isVip = durationHours >= 3;
 
@@ -91,8 +120,12 @@ export class CourtsService {
   // ============================================================
   async suspend(id: string) {
     const court = await this.findOne(id);
-    if (court.status === 'SUSPENDED') throw new BadRequestException('Sân này đã đang ở trạng thái tạm ngừng.');
-    if (court.status === 'CLOSED') throw new BadRequestException('Sân này đã đóng vĩnh viễn, không thể tạm ngừng.');
+    if (court.status === 'SUSPENDED')
+      throw new BadRequestException('Sân này đã đang ở trạng thái tạm ngừng.');
+    if (court.status === 'CLOSED')
+      throw new BadRequestException(
+        'Sân này đã đóng vĩnh viễn, không thể tạm ngừng.',
+      );
 
     return this.prisma.court.update({
       where: { id },
@@ -102,12 +135,21 @@ export class CourtsService {
 
   // Khôi phục sân từ SUSPENDED về ACTIVE
   async activate(id: string) {
-    const court = await this.prisma.court.findFirst({ where: { id, deletedAt: null } });
+    const court = await this.prisma.court.findFirst({
+      where: { id, deletedAt: null },
+    });
     if (!court) throw new NotFoundException('Không tìm thấy sân');
-    if (court.status === 'ACTIVE') throw new BadRequestException('Sân này đã đang hoạt động.');
-    if (court.status === 'CLOSED') throw new BadRequestException('Sân đã đóng vĩnh viễn, không thể kích hoạt lại.');
+    if (court.status === 'ACTIVE')
+      throw new BadRequestException('Sân này đã đang hoạt động.');
+    if (court.status === 'CLOSED')
+      throw new BadRequestException(
+        'Sân đã đóng vĩnh viễn, không thể kích hoạt lại.',
+      );
 
-    return this.prisma.court.update({ where: { id }, data: { status: 'ACTIVE' } });
+    return this.prisma.court.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+    });
   }
 
   // ============================================================
@@ -115,7 +157,8 @@ export class CourtsService {
   // ============================================================
   async close(id: string) {
     const court = await this.findOne(id);
-    if (court.status === 'CLOSED') throw new BadRequestException('Sân này đã được đóng từ trước.');
+    if (court.status === 'CLOSED')
+      throw new BadRequestException('Sân này đã được đóng từ trước.');
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Đóng sân vĩnh viễn
@@ -150,7 +193,9 @@ export class CourtsService {
 
         // 4. Phân loại & Gửi mail
         for (const b of futureBookings) {
-          const durationHours = (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / 3_600_000;
+          const durationHours =
+            (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) /
+            3_600_000;
           const isSoon = new Date(b.startTime) <= in24h;
           const isVip = durationHours >= 3;
 

@@ -40,3 +40,20 @@
 | Clean Code & Architecture    | Bạn chia project backend thành những layer nào? Vai trò của mỗi layer là gì?                              | 2        |
 | Clean Code & Architecture    | Vì sao business logic không nên đặt trực tiếp trong handler/controller?                                   | 2        |
 | Concurrency / Race Condition | Nếu có 2 request đặt sân cùng lúc, làm sao đảm bảo chỉ một request thành công?                            | 3        |
+
+
+| Chủ đề              | Nội dung                 | Mục tiêu / Ý chính                 |
+| ------------------- | ------------------------ | ---------------------------------- |
+| Giới thiệu          | Tổng quan project        | Mục tiêu, chức năng chính          |
+| Giới thiệu          | Kiến trúc / Stack        | Frontend, Backend, DB, lý do chọn  |
+| Demo Thực Tế        | Chạy feature chính       | Luồng user end-to-end              |
+| Demo Thực Tế        | Xử lý lỗi cơ bản         | Ví dụ validation / error message   |
+| Kỹ Thuật            | Giải thích cấu trúc code | Folder, module, tách layer         |
+| Kỹ Thuật            | API / Data Flow          | Request → Service → DB → Response  |
+| Kỹ Thuật            | ORM ↔ Query thuần        | Convert ORM sang SQL cơ bản        |
+| Kỹ Thuật            | Debug nhanh              | Đưa lỗi nhỏ, tìm hướng xử lý       |
+| Tư Duy & Quyết Định | Lý do chọn giải pháp     | Vì sao dùng lib / pattern đó       |
+| Tư Duy & Quyết Định | Trade-off                | Biết điểm mạnh / yếu của cách làm  |
+| Mở Rộng             | Nếu có thêm thời gian    | Sẽ cải thiện gì                    |
+| Mở Rộng             | Khả năng scale           | Cache, tối ưu query, pagination... |
+| Mở Rộng             | Git / Commit             | Cách chia commit, branch           |

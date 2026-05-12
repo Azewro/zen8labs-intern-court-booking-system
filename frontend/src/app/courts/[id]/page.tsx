@@ -2,7 +2,8 @@
 import { useState, useEffect, use, useCallback } from "react";
 import { motion } from "framer-motion";
 import axiosInstance from "@/lib/axios";
-import { MapPin, Calendar, Clock, CreditCard, ChevronLeft, Zap } from "lucide-react";
+import { MapPin, Calendar, Clock, CreditCard, ChevronLeft, Zap, Ticket } from "lucide-react";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import toast from "react-hot-toast";
 import { format, addDays, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -29,9 +30,12 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
   const [bookedSlots, setBookedSlots] = useState<{start: string, end: string}[]>([]);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "ONLINE">("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "CASH">("ONLINE");
   const [voucherCode, setVoucherCode] = useState("");
+  const [zaloPayUrl, setZaloPayUrl] = useState<string | null>(null);
   const [pricingDetails, setPricingDetails] = useState<any>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [bookingPayload, setBookingPayload] = useState<any>(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
   // Lấy data Sân
@@ -170,20 +174,38 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
     const endTimeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    const startTimeIso = new Date(`${dateStr}T${startTimeStr}:00`).toISOString();
-    const endTimeIso = new Date(`${dateStr}T${endTimeStr}:00`).toISOString();
+    setBookingPayload({
+      startTimeIso: new Date(`${dateStr}T${startTimeStr}:00`).toISOString(),
+      endTimeIso: new Date(`${dateStr}T${endTimeStr}:00`).toISOString(),
+      startTimeStr,
+      endTimeStr
+    });
+    setShowConfirmModal(true);
+  };
 
+  const executeBooking = async (gateway?: string, paypalTransactionId?: string) => {
+    if (!bookingPayload) return;
     try {
       setIsSubmitting(true);
-      await axiosInstance.post('/bookings', {
+      const res = await axiosInstance.post('/bookings', {
         courtId,
-        startTime: startTimeIso,
-        endTime: endTimeIso,
+        startTime: bookingPayload.startTimeIso,
+        endTime: bookingPayload.endTimeIso,
         paymentMethod,
+        paymentGateway: gateway,
+        paypalTransactionId,
         voucherCode: voucherCode.trim() || undefined
       });
-      toast.success("Đặt sân thành công! Hãy chuẩn bị giày vợt nhé!");
-      router.push('/profile/bookings'); // Chuyển tới trang lịch sử
+      
+      setShowConfirmModal(false);
+      
+      if (gateway === 'ZALOPAY' && res.data?.payUrl) {
+        toast.success("Mở cổng thanh toán ZaloPay...");
+        setZaloPayUrl(res.data.payUrl);
+      } else {
+        toast.success("Đặt sân thành công! Hãy chuẩn bị giày vợt nhé!");
+        router.push('/profile?tab=bookings');
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Đặt sân thất bại");
     } finally {
@@ -235,7 +257,7 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
                     <button 
                       onClick={() => setPaymentMethod("ONLINE")}
                       className={`py-2 px-3 rounded-xl border text-sm font-semibold transition-all ${paymentMethod === "ONLINE" ? "bg-teal-500/20 border-teal-500 text-teal-400" : "bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white"}`}>
-                      Ví Online (Giả lập)
+                      Thanh toán Online
                     </button>
                   </div>
                 </div>
@@ -294,7 +316,7 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
                 {isSubmitting ? "Đang xử lý..." : "Xác nhận đặt sân"}
               </button>
               {paymentMethod === "ONLINE" && (
-                <p className="text-xs text-center text-slate-500 mt-3">* Giả lập thanh toán: Bạn sẽ bị trừ tiền ngay lập tức (Mock).</p>
+                <p className="text-xs text-center text-slate-500 mt-3">* Bạn sẽ được chuyển hướng sang cổng thanh toán ZaloPay.</p>
               )}
             </div>
           </div>
@@ -302,7 +324,7 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
           {/* Cột phải: Chọn Ngày & Chọn Giờ */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-800 shadow-xl">
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center"><Calendar className="mr-3 text-teal-400" /> 1. Chọn ngày đá</h2>
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center"><Calendar className="mr-3 text-teal-400" /> 1. Chọn ngày thuê sân</h2>
               
               <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar">
                 {nextDays.map((date, idx) => (
@@ -387,6 +409,103 @@ export default function CourtBookingPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+      {/* Confirm Modal */}
+      {showConfirmModal && bookingPayload && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-[50vw] min-w-[350px] max-w-2xl bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+          >
+            <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
+              <h3 className="text-xl font-bold text-white">Xác nhận Đặt sân</h3>
+              <button onClick={() => setShowConfirmModal(false)} className="text-slate-400 hover:text-rose-400 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-slate-300">
+              <div className="flex justify-between border-b border-slate-800 pb-3">
+                <span>Sân:</span> <span className="font-bold text-white">{court.name}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-800 pb-3">
+                <span>Ngày:</span> <span className="font-bold text-white">{format(selectedDate, "dd/MM/yyyy")}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-800 pb-3">
+                <span>Khung giờ:</span> <span className="font-bold text-teal-400">{bookingPayload.startTimeStr} - {bookingPayload.endTimeStr}</span>
+              </div>
+              <div className="flex justify-between pb-2">
+                <span className="font-medium">Tổng thanh toán:</span> <span className="font-bold text-rose-400 text-2xl">{pricingDetails?.finalPrice?.toLocaleString()} đ</span>
+              </div>
+            </div>
+            <div className="p-6 bg-slate-800/40">
+              {paymentMethod === 'CASH' ? (
+                <button onClick={() => executeBooking('CASH')} disabled={isSubmitting} className="w-full py-4 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-xl shadow-lg transition-all text-lg">
+                  {isSubmitting ? "Đang xử lý..." : "Xác nhận & Đặt Sân"}
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-center text-slate-400 font-medium mb-3">Vui lòng chọn cổng thanh toán:</p>
+                  <button onClick={() => executeBooking('ZALOPAY')} disabled={isSubmitting} className="w-full py-3 bg-[#0068FF] hover:bg-blue-600 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-3">
+                    <img src="https://upload.wikimedia.org/wikipedia/vi/7/77/ZaloPay_Logo.png" alt="ZaloPay" className="h-6 object-contain bg-white px-2 rounded" />
+                    Thanh toán qua ZaloPay
+                  </button>
+                  
+                  <div className="relative flex items-center py-2">
+                    <div className="flex-grow border-t border-slate-700"></div>
+                    <span className="flex-shrink-0 mx-4 text-slate-500 text-sm italic">Hoặc an toàn với</span>
+                    <div className="flex-grow border-t border-slate-700"></div>
+                  </div>
+                  
+                  <PayPalScriptProvider options={{ clientId: "test", currency: "USD", intent: "capture" }}>
+                    <PayPalButtons 
+                      style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
+                      createOrder={(data, actions) => {
+                        const usdAmount = (Number(pricingDetails?.finalPrice || 0) / 25000).toFixed(2);
+                        return actions.order.create({
+                          intent: "CAPTURE",
+                          purchase_units: [{ amount: { value: usdAmount, currency_code: "USD" } }]
+                        });
+                      }}
+                      onApprove={async (data, actions) => {
+                        if (actions.order) {
+                          const details = await actions.order.capture();
+                          await executeBooking('PAYPAL', details.id);
+                        }
+                      }}
+                    />
+                  </PayPalScriptProvider>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ZaloPay Iframe Modal */}
+      {zaloPayUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative w-full max-w-[70vw] h-[80vh] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-slate-700"
+          >
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
+              <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                <img src="https://upload.wikimedia.org/wikipedia/vi/7/77/ZaloPay_Logo.png" alt="ZaloPay" className="h-6 object-contain" />
+                Cổng thanh toán
+              </h3>
+              <button onClick={() => {
+                  setZaloPayUrl(null);
+                  router.push('/profile?tab=bookings');
+              }} className="text-gray-500 hover:text-red-500 transition-colors p-1 bg-gray-200 rounded-full">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <iframe src={zaloPayUrl} className="w-full flex-1 border-0" />
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

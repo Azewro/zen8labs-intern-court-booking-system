@@ -10,15 +10,15 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     // Nếu API không gắn mác @Roles nào cả -> Ai cũng được vô
     if (!requiredRoles) {
       return true;
     }
-    
+
     // Lấy thông tin user từ JWT (Đã được JwtAuthGuard nhét vào req trước đó)
     const { user } = context.switchToHttp().getRequest();
-    
+
     // So sánh xem role của user hiện tại có nằm trong danh sách được phép không
     return requiredRoles.some((role) => user?.role === role);
   }

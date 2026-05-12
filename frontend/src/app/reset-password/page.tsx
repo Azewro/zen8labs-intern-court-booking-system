@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import { motion } from "framer-motion";
 import axiosInstance from "@/lib/axios";
 
@@ -33,7 +33,9 @@ function ResetPasswordContent() {
     try {
       const res = await axiosInstance.post("/auth/reset-password", { token, newPassword });
       toast.success(res.data.message || "Đổi mật khẩu thành công!");
-      router.push("/login");
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Lỗi đặt lại mật khẩu");
     } finally {

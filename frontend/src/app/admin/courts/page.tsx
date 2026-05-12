@@ -46,6 +46,7 @@ export default function CourtsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ 
     name: "", location: "", pricePerHour: "", 
+    description: "", imageUrl: "",
     peakPricePerHour: "", peakStartHour: "", peakEndHour: "" 
   });
 
@@ -119,11 +120,14 @@ export default function CourtsPage() {
       name: court.name, 
       location: court.location, 
       pricePerHour: court.pricePerHour?.toString() || "",
+      description: court.description || "",
+      imageUrl: court.imageUrl || "",
       peakPricePerHour: court.peakPricePerHour?.toString() || "",
       peakStartHour: court.peakStartHour?.toString() || "",
       peakEndHour: court.peakEndHour?.toString() || ""
     } : { 
       name: "", location: "", pricePerHour: "",
+      description: "", imageUrl: "",
       peakPricePerHour: "", peakStartHour: "", peakEndHour: ""
     });
     setIsModalOpen(true);
@@ -137,6 +141,9 @@ export default function CourtsPage() {
         location: formData.location, 
         pricePerHour: Number(formData.pricePerHour) 
       };
+      
+      if (formData.description) payload.description = formData.description;
+      if (formData.imageUrl) payload.imageUrl = formData.imageUrl;
       
       if (formData.peakPricePerHour) payload.peakPricePerHour = Number(formData.peakPricePerHour);
       if (formData.peakStartHour) payload.peakStartHour = Number(formData.peakStartHour);
@@ -394,6 +401,14 @@ export default function CourtsPage() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-300 mb-1.5">Vị trí</label>
                   <input required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">Mô tả (Tùy chọn)</label>
+                  <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={2} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">Link Ảnh (Tùy chọn)</label>
+                  <input type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} placeholder="https://example.com/image.jpg" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-teal-500 transition-all"/>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">

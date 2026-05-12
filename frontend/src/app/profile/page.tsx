@@ -22,6 +22,7 @@ function ProfileContent() {
   const [backLabel, setBackLabel] = useState("Về Trang Chủ");
 
   const [userInfo, setUserInfo] = useState<any>(null);
+  const [zaloPayUrl, setZaloPayUrl] = useState<string | null>(null);
   const [loadingInfo, setLoadingInfo] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ fullName: "", phoneNumber: "" });
@@ -29,6 +30,9 @@ function ProfileContent() {
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
+  const [bookingStatus, setBookingStatus] = useState("ALL");
+  const [bookingPage, setBookingPage] = useState(1);
+  const [hasMoreBookings, setHasMoreBookings] = useState(false);
 
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -50,25 +54,38 @@ function ProfileContent() {
       .finally(() => setLoadingInfo(false));
   }, [router]);
 
-  const fetchMyBookings = useCallback(async (showLoading = true) => {
+  const fetchMyBookings = useCallback(async (showLoading = true, pageToLoad = 1, append = false) => {
     if (showLoading) setLoadingBookings(true);
     try {
-      const res = await axiosInstance.get("/bookings/my-bookings");
-      setBookings(res.data);
+      const res = await axiosInstance.get(`/bookings/my-bookings?status=${bookingStatus}&page=${pageToLoad}&limit=5`);
+      if (append) {
+        setBookings(prev => {
+          // Tránh duplicate id nếu backend trả về trùng
+          const existingIds = new Set(prev.map(b => b.id));
+          const newItems = res.data.data.filter((b: any) => !existingIds.has(b.id));
+          return [...prev, ...newItems];
+        });
+      } else {
+        setBookings(res.data.data);
+      }
+      setHasMoreBookings(pageToLoad < res.data.meta.totalPages);
     } catch {
       // Bỏ qua lỗi ngầm
     } finally {
       if (showLoading) setLoadingBookings(false);
     }
-  }, []);
+  }, [bookingStatus]);
 
   useEffect(() => {
-    fetchMyBookings(true);
+    setBookingPage(1);
+    fetchMyBookings(true, 1, false);
+    
+    // Auto refresh ngầm trang hiện tại
     const interval = setInterval(() => {
-      fetchMyBookings(false);
+      fetchMyBookings(false, 1, false);
     }, 6000);
     return () => clearInterval(interval);
-  }, [fetchMyBookings]);
+  }, [fetchMyBookings, bookingStatus]);
 
   const handleSaveProfile = async () => {
     setSavingProfile(true);
@@ -106,6 +123,19 @@ function ProfileContent() {
       const res = await axiosInstance.get("/bookings/my-bookings");
       setBookings(res.data);
     } catch (e: any) { toast.error(e.response?.data?.message || "Lỗi khi hủy lịch"); }
+  };
+
+  const handlePayAgain = async (bookingId: string) => {
+    try {
+      toast.loading("Đang tạo link thanh toán...", { id: "pay-again" });
+      const res = await axiosInstance.post(`/bookings/${bookingId}/pay-again`);
+      if (res.data?.payUrl) {
+        toast.success("Mở cổng thanh toán ZaloPay...", { id: "pay-again" });
+        setZaloPayUrl(res.data.payUrl);
+      }
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Không thể tạo thanh toán", { id: "pay-again" });
+    }
   };
 
   const renderStatus = (status: string) => {
@@ -243,6 +273,28 @@ function ProfileContent() {
                     </Link>
                   </div>
 
+                  {/* Tabs Lọc Trạng Thái */}
+                  <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
+                    {[
+                      { id: "ALL", label: "Tất cả" },
+                      { id: "PENDING", label: "Chờ duyệt" },
+                      { id: "CONFIRMED", label: "Đã chốt" },
+                      { id: "CANCELLED", label: "Đã hủy" }
+                    ].map(st => (
+                      <button
+                        key={st.id}
+                        onClick={() => setBookingStatus(st.id)}
+                        className={`px-5 py-2.5 rounded-full font-semibold text-sm whitespace-nowrap transition-all ${
+                          bookingStatus === st.id 
+                          ? "bg-teal-500 text-white shadow-lg shadow-teal-500/20" 
+                          : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+
                   {loadingBookings ? (
                     <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-14 w-14 border-t-2 border-b-2 border-teal-500"/></div>
                   ) : bookings.length === 0 ? (
@@ -283,9 +335,12 @@ function ProfileContent() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center px-7 border-l border-slate-800">
+                            <div className="flex flex-col items-center justify-center px-7 border-l border-slate-800 gap-3">
+                              {b.status === "PENDING" && b.paymentMethod === "ONLINE" && b.paymentStatus === "UNPAID" && (
+                                <button onClick={() => handlePayAgain(b.id)} className="px-6 py-2 bg-teal-500/10 hover:bg-teal-500 text-teal-400 hover:text-white font-bold rounded-xl transition-all border border-teal-500/20 text-sm whitespace-nowrap">Thanh toán tiếp</button>
+                              )}
                               {canCancel ? (
-                                <button onClick={() => handleCancel(b.id)} className="px-6 py-3 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white font-bold rounded-xl transition-all border border-rose-500/20 text-base whitespace-nowrap">Hủy Sân</button>
+                                <button onClick={() => handleCancel(b.id)} className="px-6 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white font-bold rounded-xl transition-all border border-rose-500/20 text-sm whitespace-nowrap">Hủy Sân</button>
                               ) : (
                                 <p className="text-sm font-semibold text-slate-600 whitespace-nowrap px-2">{b.status === "CANCELLED" ? "Đã hủy" : "Không thể hủy"}</p>
                               )}
@@ -293,6 +348,22 @@ function ProfileContent() {
                           </motion.div>
                         );
                       })}
+                      
+                      {/* Nút Load More */}
+                      {hasMoreBookings && (
+                        <div className="text-center mt-10">
+                          <button
+                            onClick={() => {
+                              const nextPage = bookingPage + 1;
+                              setBookingPage(nextPage);
+                              fetchMyBookings(false, nextPage, true);
+                            }}
+                            className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-full font-semibold border border-slate-700 transition-all text-sm"
+                          >
+                            Tải thêm...
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </motion.div>
@@ -336,6 +407,31 @@ function ProfileContent() {
           </main>
         </div>
       </div>
+
+      {/* ZaloPay Iframe Modal */}
+      {zaloPayUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative w-full max-w-[70vw] h-[80vh] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-slate-700"
+          >
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
+              <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                <img src="https://upload.wikimedia.org/wikipedia/vi/7/77/ZaloPay_Logo.png" alt="ZaloPay" className="h-6 object-contain" />
+                Cổng thanh toán
+              </h3>
+              <button onClick={() => {
+                  setZaloPayUrl(null);
+                  axiosInstance.get("/bookings/my-bookings").then(res => setBookings(res.data));
+              }} className="text-gray-500 hover:text-red-500 transition-colors p-1 bg-gray-200 rounded-full">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <iframe src={zaloPayUrl} className="w-full flex-1 border-0" />
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

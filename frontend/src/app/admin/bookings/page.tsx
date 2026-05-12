@@ -1,15 +1,15 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { 
-  Search, Calendar, User, Clock, ChevronLeft, ChevronRight, 
-  MapPin, Filter, ChevronsUpDown, ChevronUp, ChevronDown 
+import {
+  Search, Calendar, User, Clock, ChevronLeft, ChevronRight,
+  MapPin, Filter, ChevronsUpDown, ChevronUp, ChevronDown
 } from "lucide-react";
 import axiosInstance from "@/lib/axios";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
 
-type SortKey = "user.fullName" | "court.name" | "startTime" | "totalPrice" | "status";
+type SortKey = "user.fullName" | "court.name" | "startTime" | "createdAt" | "totalPrice" | "status";
 type SortOrder = "asc" | "desc";
 
 function SortIcon({ col, sortBy, sortOrder }: { col: SortKey; sortBy: SortKey; sortOrder: SortOrder }) {
@@ -22,6 +22,8 @@ export default function AdminBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [dateFilter, setDateFilter] = useState("");
+  const [playDateFilter, setPlayDateFilter] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [meta, setMeta] = useState<any>(null);
@@ -39,10 +41,12 @@ export default function AdminBookingsPage() {
         limit: "10",
         ...(search && { search }),
         ...(statusFilter !== "ALL" && { status: statusFilter }),
-        sortBy, 
+        ...(dateFilter && { filterDate: dateFilter }),
+        ...(playDateFilter && { filterStartTime: playDateFilter }),
+        sortBy,
         sortOrder
       });
-      
+
       const res = await axiosInstance.get(`/bookings?${params}`);
       let data = res.data.data;
 
@@ -54,12 +58,12 @@ export default function AdminBookingsPage() {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [page, search, statusFilter, sortBy, sortOrder]);
+  }, [page, search, statusFilter, dateFilter, playDateFilter, sortBy, sortOrder]);
 
   useEffect(() => {
     // Gọi API lần đầu tiên (có loading mượt mà)
     const handler = setTimeout(() => fetchBookings(true), 400);
-    
+
     // Tự động fetch lại ngầm mỗi 6 giây (Auto Polling)
     const interval = setInterval(() => {
       fetchBookings(false); // Gọi ngầm, không bật Loading UI
@@ -118,8 +122,8 @@ export default function AdminBookingsPage() {
 
       {/* Filters */}
       <div className="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-5 flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-2 text-slate-400 font-medium text-sm"><Filter size={16}/> Bộ lọc</div>
-        
+        <div className="flex items-center gap-2 text-slate-400 font-medium text-sm"><Filter size={16} /> Bộ lọc</div>
+
         {/* Search */}
         <div className="flex-1 min-w-[250px] relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -132,11 +136,35 @@ export default function AdminBookingsPage() {
           />
         </div>
 
+        {/* Filter Ngày Ghi Nhận */}
+        <div className="flex items-center gap-2">
+          <span className="text-slate-500 text-xs font-semibold uppercase">Ghi nhận:</span>
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
+            className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-all cursor-pointer"
+            title="Ngày tạo phiếu"
+          />
+        </div>
+
+        {/* Filter Ngày Chơi */}
+        <div className="flex items-center gap-2">
+          <span className="text-slate-500 text-xs font-semibold uppercase">Lịch chơi:</span>
+          <input
+            type="date"
+            value={playDateFilter}
+            onChange={(e) => { setPlayDateFilter(e.target.value); setPage(1); }}
+            className="bg-slate-800 border border-slate-700 text-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-all cursor-pointer"
+            title="Ngày ra sân"
+          />
+        </div>
+
         {/* Status Filter */}
-        <select 
-          value={statusFilter} 
+        <select
+          value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-all"
+          className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500 transition-all cursor-pointer"
         >
           <option value="ALL">Tất cả trạng thái</option>
           <option value="CONFIRMED">Đã xác nhận</option>
@@ -158,19 +186,22 @@ export default function AdminBookingsPage() {
             <thead>
               <tr className="border-b border-slate-800 bg-slate-900/60 text-sm uppercase tracking-wider">
                 <th className={thClass("user.fullName")} onClick={() => handleSort("user.fullName")}>
-                  <span className="flex items-center gap-1.5"><User size={14}/> Khách hàng <SortIcon col="user.fullName" sortBy={sortBy} sortOrder={sortOrder}/></span>
+                  <span className="flex items-center gap-1.5"><User size={14} /> Khách hàng <SortIcon col="user.fullName" sortBy={sortBy} sortOrder={sortOrder} /></span>
                 </th>
                 <th className={thClass("court.name")} onClick={() => handleSort("court.name")}>
-                  <span className="flex items-center gap-1.5"><MapPin size={14}/> Sân <SortIcon col="court.name" sortBy={sortBy} sortOrder={sortOrder}/></span>
+                  <span className="flex items-center gap-1.5"><MapPin size={14} /> Sân <SortIcon col="court.name" sortBy={sortBy} sortOrder={sortOrder} /></span>
                 </th>
                 <th className={thClass("startTime")} onClick={() => handleSort("startTime")}>
-                  <span className="flex items-center gap-1.5"><Calendar size={14}/> Thời gian <SortIcon col="startTime" sortBy={sortBy} sortOrder={sortOrder}/></span>
+                  <span className="flex items-center gap-1.5"><Calendar size={14} /> Lịch Chơi <SortIcon col="startTime" sortBy={sortBy} sortOrder={sortOrder} /></span>
+                </th>
+                <th className={thClass("createdAt")} onClick={() => handleSort("createdAt")}>
+                  <span className="flex items-center gap-1.5"><Clock size={14} /> TG Ghi Nhận <SortIcon col="createdAt" sortBy={sortBy} sortOrder={sortOrder} /></span>
                 </th>
                 <th className={thClass("totalPrice")} onClick={() => handleSort("totalPrice")}>
-                  <span className="flex items-center gap-1.5">Tổng tiền <SortIcon col="totalPrice" sortBy={sortBy} sortOrder={sortOrder}/></span>
+                  <span className="flex items-center gap-1.5">Tổng tiền <SortIcon col="totalPrice" sortBy={sortBy} sortOrder={sortOrder} /></span>
                 </th>
                 <th className={`${thClass("status")} text-center`} onClick={() => handleSort("status")}>
-                  <span className="flex items-center justify-center gap-1.5">Trạng thái <SortIcon col="status" sortBy={sortBy} sortOrder={sortOrder}/></span>
+                  <span className="flex items-center justify-center gap-1.5">Trạng thái <SortIcon col="status" sortBy={sortBy} sortOrder={sortOrder} /></span>
                 </th>
                 <th className="p-5 font-medium text-slate-400 text-center w-[150px]">Thao tác</th>
               </tr>
@@ -181,15 +212,15 @@ export default function AdminBookingsPage() {
                   <div className="flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-teal-500"></div></div>
                 </td></tr>
               ) : bookings.length === 0 ? (
-                <tr><td colSpan={6} className="p-16 text-center text-slate-500">
+                <tr><td colSpan={7} className="p-16 text-center text-slate-500">
                   <Clock size={40} className="mx-auto mb-3 opacity-30 text-teal-400" />
                   Không tìm thấy lịch đặt nào phù hợp.
                 </td></tr>
               ) : (
                 bookings.map((b, idx) => (
-                  <motion.tr 
+                  <motion.tr
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}
-                    key={b.id} 
+                    key={b.id}
                     className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors"
                   >
                     <td className="p-5">
@@ -201,7 +232,11 @@ export default function AdminBookingsPage() {
                     </td>
                     <td className="p-5 text-slate-300">
                       <p className="font-semibold text-sm">{format(new Date(b.startTime), "dd/MM/yyyy")}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{format(new Date(b.startTime), "HH:mm")} - {format(new Date(b.endTime), "HH:mm")}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 font-bold text-teal-400">{format(new Date(b.startTime), "HH:mm")} - {format(new Date(b.endTime), "HH:mm")}</p>
+                    </td>
+                    <td className="p-5 text-slate-300">
+                      <p className="font-semibold text-sm">{b.createdAt ? format(new Date(b.createdAt), "dd/MM/yyyy") : '-'}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{b.createdAt ? format(new Date(b.createdAt), "HH:mm") : '-'}</p>
                     </td>
                     <td className="p-5 font-bold text-white text-sm">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(b.totalPrice)}

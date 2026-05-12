@@ -1,4 +1,14 @@
-import { Controller, Post, Body, ValidationPipe, Get, UseGuards, Req, Res, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  ValidationPipe,
+  Get,
+  UseGuards,
+  Req,
+  Res,
+  Patch,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -30,7 +40,10 @@ export class AuthController {
 
   @Patch('profile')
   @UseGuards(AuthGuard('jwt'))
-  updateProfile(@Req() req: any, @Body() body: { fullName?: string; phoneNumber?: string }) {
+  updateProfile(
+    @Req() req: any,
+    @Body() body: { fullName?: string; phoneNumber?: string },
+  ) {
     return this.authService.updateProfile(req.user.id, body);
   }
 
@@ -38,7 +51,9 @@ export class AuthController {
   @UseGuards(AuthGuard('google'))
   async googleAuthRedirect(@Req() req: any, @Res() res: any) {
     const data = await this.authService.googleLogin(req);
-    return res.redirect(`http://localhost:3000/login?token=${data.access_token}&role=${data.role}&email=${data.email}`);
+    return res.redirect(
+      `http://localhost:3000/login?token=${data.access_token}&role=${data.role}&email=${data.email}`,
+    );
   }
 
   @Patch('change-password')

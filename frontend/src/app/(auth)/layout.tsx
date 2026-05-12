@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -38,12 +39,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         {/* Nội dung Giới thiệu */}
         <div className="relative z-10 w-full max-w-lg">
-          <div className="flex items-center gap-3 mb-10">
+          <Link href="/" className="inline-flex items-center gap-3 mb-10 hover:opacity-80 transition-opacity cursor-pointer">
             <div className="h-12 w-12 rounded-xl bg-teal-500 flex items-center justify-center font-bold text-white shadow-lg shadow-teal-500/30 text-xl">
               Z8
             </div>
             <span className="font-bold text-3xl tracking-tight text-white">Zen8Labs</span>
-          </div>
+          </Link>
           
           <h1 className="text-5xl font-extrabold text-white leading-tight mb-6">
             Hệ thống Đặt Sân <br />

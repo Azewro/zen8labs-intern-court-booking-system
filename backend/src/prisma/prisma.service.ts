@@ -12,10 +12,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     // Khởi tạo Pool kết nối của thư viện pg
     const connectionString = process.env.DATABASE_URL;
     const pool = new Pool({ connectionString });
-    
+
     // Đưa Pool vào Adapter của Prisma 7
     const adapter = new PrismaPg(pool);
-    
+
     // Gọi super và truyền adapter vào PrismaClient
     super({ adapter });
   }

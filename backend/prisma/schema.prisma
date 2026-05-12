@@ -27,6 +27,13 @@ enum PaymentMethod {
   ONLINE
 }
 
+enum PaymentTxStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
 model User {
   id          String    @id @default(uuid())
   email       String    @unique
@@ -36,6 +43,10 @@ model User {
   googleId    String?   @map("google_id")
   role        Role      @default(USER)
   isActive    Boolean   @default(true) @map("is_active")
+  
+  resetToken        String?
+  resetTokenExpires DateTime?
+
   
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -111,6 +122,35 @@ model Booking {
   user          User          @relation(fields: [userId], references: [id])
   court         Court         @relation(fields: [courtId], references: [id])
   voucher       Voucher?      @relation(fields: [voucherId], references: [id])
+  payment       Payment?
+
+  // Performance Indexes
+  // Index 1: Tối ưu query kiểm tra overlap khi đặt sân (query nhiều nhất)
+  @@index([courtId, startTime, endTime])
+  // Index 2: Tối ưu query lịch sử đặt sân của 1 người dùng
+  @@index([userId, createdAt])
+  // Index 3: Tối ưu query lọc theo trạng thái (Admin dashboard)
+  @@index([status, createdAt])
 
   @@map("bookings")
+}
+
+model Payment {
+  id             String          @id @default(uuid())
+  bookingId      String          @unique @map("booking_id")
+  appTransId     String          @unique @map("app_trans_id")
+  amount         Decimal         @db.Decimal(10, 2)
+  status         PaymentTxStatus @default(PENDING)
+  gateway        String          @default("ZALOPAY")
+  gatewayTransId String?         @map("gateway_trans_id")
+  rawCallback    Json?           @map("raw_callback")
+  refundId       String?         @map("refund_id")
+  
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  
+  booking        Booking         @relation(fields: [bookingId], references: [id])
+  
+  @@index([appTransId])
+  @@map("payments")
 }

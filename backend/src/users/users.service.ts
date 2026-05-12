@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
 
@@ -31,7 +35,14 @@ export class UsersService {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }) {
-    const { page = 1, limit = 10, search, role, sortBy = 'createdAt', sortOrder = 'desc' } = params;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      role,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = params;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -45,7 +56,7 @@ export class UsersService {
     if (role && role !== 'ALL') where.role = role;
 
     // Mapping sort key
-    let orderBy: any = { [sortBy]: sortOrder };
+    const orderBy: any = { [sortBy]: sortOrder };
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
@@ -54,30 +65,52 @@ export class UsersService {
         take: Number(limit),
         orderBy,
         select: {
-          id: true, email: true, fullName: true, phoneNumber: true,
-          role: true, isActive: true, googleId: true, createdAt: true,
+          id: true,
+          email: true,
+          fullName: true,
+          phoneNumber: true,
+          role: true,
+          isActive: true,
+          googleId: true,
+          createdAt: true,
         },
       }),
       this.prisma.user.count({ where }),
     ]);
 
-    return { data: users, meta: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / limit) } };
+    return {
+      data: users,
+      meta: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   // Toggle isActive — admin không thể tự disable mình
   async toggleStatus(targetId: string, requesterId: string) {
     // Chống tự vô hiệu hóa bản thân (Backend Level)
     if (targetId === requesterId) {
-      throw new ForbiddenException('Admin không thể tự vô hiệu hóa tài khoản của mình');
+      throw new ForbiddenException(
+        'Admin không thể tự vô hiệu hóa tài khoản của mình',
+      );
     }
-    
+
     const user = await this.prisma.user.findUnique({ where: { id: targetId } });
     if (!user) throw new NotFoundException('Không tìm thấy người dùng');
 
     const updated = await this.prisma.user.update({
       where: { id: targetId },
       data: { isActive: !user.isActive },
-      select: { id: true, email: true, fullName: true, role: true, isActive: true },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        isActive: true,
+      },
     });
     return updated;
   }

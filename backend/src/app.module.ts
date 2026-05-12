@@ -9,17 +9,22 @@ import { BookingsModule } from './bookings/bookings.module';
 import { MailModule } from './mail/mail.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { VouchersModule } from './vouchers/vouchers.module';
+import { PaymentsModule } from './payments/payments.module';
+
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
-    UsersModule, 
-    AuthModule, 
-    PrismaModule, 
-    CourtsModule, 
-    BookingsModule, 
+    ScheduleModule.forRoot(),
+    UsersModule,
+    AuthModule,
+    PrismaModule,
+    CourtsModule,
+    BookingsModule,
     MailModule,
     AnalyticsModule,
-    VouchersModule
+    VouchersModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

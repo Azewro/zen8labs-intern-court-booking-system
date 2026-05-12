@@ -7,7 +7,9 @@ export class VouchersService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateVoucherDto) {
-    const existing = await this.prisma.voucher.findUnique({ where: { code: dto.code } });
+    const existing = await this.prisma.voucher.findUnique({
+      where: { code: dto.code },
+    });
     if (existing) throw new BadRequestException('Mã voucher đã tồn tại');
 
     return this.prisma.voucher.create({
@@ -15,14 +17,14 @@ export class VouchersService {
         code: dto.code.toUpperCase(),
         discountPercent: dto.discountPercent,
         maxDiscount: dto.maxDiscount,
-        validTo: new Date(dto.validTo)
-      }
+        validTo: new Date(dto.validTo),
+      },
     });
   }
 
   findAll() {
     return this.prisma.voucher.findMany({
-      orderBy: { validFrom: 'desc' }
+      orderBy: { validFrom: 'desc' },
     });
   }
 
@@ -32,7 +34,7 @@ export class VouchersService {
 
     return this.prisma.voucher.update({
       where: { id },
-      data: { isActive: !voucher.isActive }
+      data: { isActive: !voucher.isActive },
     });
   }
 }

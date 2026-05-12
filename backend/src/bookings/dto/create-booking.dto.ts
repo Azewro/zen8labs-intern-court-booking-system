@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsDateString, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsDateString,
+  IsOptional,
+  IsEnum,
+} from 'class-validator';
 import { IsAfter } from '../../common/decorators/is-after.decorator';
 import { IsValidSlot } from '../../common/decorators/is-valid-slot.decorator';
 
@@ -21,6 +27,14 @@ export class CreateBookingDto {
   @IsOptional()
   @IsEnum(['CASH', 'ONLINE'])
   paymentMethod?: 'CASH' | 'ONLINE';
+
+  @IsOptional()
+  @IsString()
+  paymentGateway?: string;
+
+  @IsOptional()
+  @IsString()
+  paypalTransactionId?: string;
 
   @IsOptional()
   @IsString()

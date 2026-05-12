@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import toast from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import { motion } from "framer-motion";
 import axiosInstance from "@/lib/axios";
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -16,6 +17,9 @@ export default function ForgotPasswordPage() {
     try {
       const res = await axiosInstance.post("/auth/forgot-password", { email });
       toast.success(res.data.message || "Đã gửi email khôi phục!");
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Lỗi gửi email");
     } finally {

@@ -1,7 +1,14 @@
-import { registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
+import {
+  registerDecorator,
+  ValidationOptions,
+  ValidationArguments,
+} from 'class-validator';
 
-export function IsAfter(property: string, validationOptions?: ValidationOptions) {
-  return function (object: Object, propertyName: string) {
+export function IsAfter(
+  property: string,
+  validationOptions?: ValidationOptions,
+) {
+  return function (object: object, propertyName: string) {
     registerDecorator({
       name: 'isAfter',
       target: object.constructor,
@@ -21,7 +28,7 @@ export function IsAfter(property: string, validationOptions?: ValidationOptions)
         },
         defaultMessage(args: ValidationArguments) {
           return `${args.property} phải diễn ra sau khoảng thời gian của ${args.constraints[0]}`;
-        }
+        },
       },
     });
   };

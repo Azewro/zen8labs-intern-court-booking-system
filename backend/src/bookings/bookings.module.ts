@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingsController } from './bookings.controller';
 import { MailModule } from '../mail/mail.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
-  imports: [MailModule],
+  imports: [MailModule, PaymentsModule],
   controllers: [BookingsController],
   providers: [BookingsService],
 })

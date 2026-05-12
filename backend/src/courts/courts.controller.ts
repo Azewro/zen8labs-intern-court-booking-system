@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CourtsService } from './courts.service';
 import { CreateCourtDto } from './dto/create-court.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
@@ -24,7 +34,12 @@ export class CourtsController {
     @Query('search') search?: string,
     @Query('includeInactive') includeInactive?: string,
   ) {
-    return this.courtsService.findAll(page ? +page : 1, limit ? +limit : 10, search, includeInactive === 'true');
+    return this.courtsService.findAll(
+      page ? +page : 1,
+      limit ? +limit : 10,
+      search,
+      includeInactive === 'true',
+    );
   }
 
   @Get(':id')

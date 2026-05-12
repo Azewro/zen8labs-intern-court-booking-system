@@ -43,7 +43,6 @@ export default function RegisterPage() {
       transition={{ duration: 0.5 }}
       className="p-8 rounded-3xl bg-slate-900/60 border border-slate-700/50 shadow-2xl backdrop-blur-2xl"
     >
-      <Toaster position="top-right" />
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white tracking-tight">Tạo tài khoản mới</h2>
         <p className="text-slate-400 mt-2 font-medium">Bắt đầu hành trình thể thao của bạn</p>
