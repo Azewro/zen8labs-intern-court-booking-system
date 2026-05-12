@@ -2,12 +2,19 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BookingsService } from './bookings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+
+// Mock PaymentsService và uuid để tránh lỗi ESM trong Jest
+jest.mock('../payments/payments.service');
+jest.mock('uuid', () => ({ v4: () => 'mock-uuid' }));
+
+import { PaymentsService } from '../payments/payments.service';
 
 describe('BookingsService', () => {
   let service: BookingsService;
   let prismaService: any;
   let mailService: any;
+  let paymentsService: any;
 
   beforeEach(async () => {
     // 1. Khởi tạo mock cho PrismaService
@@ -18,6 +25,7 @@ describe('BookingsService', () => {
       booking: {
         findMany: jest.fn(),
         create: jest.fn(),
+        count: jest.fn(),
       },
       voucher: {
         findFirst: jest.fn(),
@@ -31,7 +39,12 @@ describe('BookingsService', () => {
 
     // 2. Khởi tạo mock cho MailService
     mailService = {
-      sendBookingConfirmation: jest.fn(),
+      sendBookingConfirmation: jest.fn().mockResolvedValue(true),
+    };
+
+    paymentsService = {
+      createZaloPayOrder: jest.fn().mockResolvedValue({ payUrl: 'http://pay.vn' }),
+      refundPayment: jest.fn().mockResolvedValue({ success: true }),
     };
 
     // 3. Tạo module test
@@ -40,6 +53,7 @@ describe('BookingsService', () => {
         BookingsService,
         { provide: PrismaService, useValue: prismaService },
         { provide: MailService, useValue: mailService },
+        { provide: PaymentsService, useValue: paymentsService },
       ],
     }).compile();
 
@@ -115,7 +129,7 @@ describe('BookingsService', () => {
         }),
       );
       expect(mailService.sendBookingConfirmation).toHaveBeenCalled();
-      expect(result).toEqual(expectedBooking);
+      expect(result).toEqual({ booking: expectedBooking, payUrl: null });
     });
 
     it('should throw BadRequestException if time slot overlaps with existing booking', async () => {
@@ -161,6 +175,74 @@ describe('BookingsService', () => {
       // Act & Assert
       await expect(service.create(userId, defaultDto)).rejects.toThrow(
         new NotFoundException('Sân không tồn tại hoặc đã đóng cửa.'),
+      );
+    });
+  });
+
+  describe('findAllForAdmin (Lọc và Phân trang cho Admin)', () => {
+    it('should filter by createdAt using +07:00 timezone', async () => {
+      // Arrange
+      prismaService.booking.findMany.mockResolvedValue([]);
+      prismaService.booking.count.mockResolvedValue(0);
+      const filterDate = '2026-05-13';
+
+      // Act
+      await service.findAllForAdmin({ filterDate });
+
+      // Assert
+      expect(prismaService.booking.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: {
+              gte: new Date('2026-05-13T00:00:00.000+07:00'),
+              lte: new Date('2026-05-13T23:59:59.999+07:00'),
+            },
+          }),
+        }),
+      );
+    });
+
+    it('should filter by startTime using +07:00 timezone', async () => {
+      // Arrange
+      prismaService.booking.findMany.mockResolvedValue([]);
+      prismaService.booking.count.mockResolvedValue(0);
+      const filterStartTime = '2026-05-13';
+
+      // Act
+      await service.findAllForAdmin({ filterStartTime });
+
+      // Assert
+      expect(prismaService.booking.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            startTime: {
+              gte: new Date('2026-05-13T00:00:00.000+07:00'),
+              lte: new Date('2026-05-13T23:59:59.999+07:00'),
+            },
+          }),
+        }),
+      );
+    });
+
+    it('should apply pagination and search', async () => {
+      // Arrange
+      prismaService.booking.findMany.mockResolvedValue([]);
+      prismaService.booking.count.mockResolvedValue(0);
+
+      // Act
+      await service.findAllForAdmin({ page: 2, limit: 5, search: 'miku' });
+
+      // Assert
+      expect(prismaService.booking.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 5,
+          take: 5,
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              expect.objectContaining({ user: { email: { contains: 'miku', mode: 'insensitive' } } }),
+            ]),
+          }),
+        }),
       );
     });
   });
