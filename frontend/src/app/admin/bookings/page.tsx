@@ -48,11 +48,12 @@ export default function AdminBookingsPage() {
       });
 
       const res = await axiosInstance.get(`/bookings?${params}`);
-      let data = res.data.data;
+      const data = res.data?.data || [];
+      const metaData = res.data?.meta || { totalPages: 1, total: 0 };
 
       setBookings(data);
-      setTotalPages(res.data.meta.totalPages);
-      setMeta(res.data.meta);
+      setTotalPages(metaData.totalPages);
+      setMeta(metaData);
     } catch (error) {
       if (showLoading) toast.error("Lỗi khi tải danh sách lịch đặt");
     } finally {

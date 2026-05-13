@@ -58,17 +58,19 @@ function ProfileContent() {
     if (showLoading) setLoadingBookings(true);
     try {
       const res = await axiosInstance.get(`/bookings/my-bookings?status=${bookingStatus}&page=${pageToLoad}&limit=5`);
+      const newData = res.data?.data || [];
+      const meta = res.data?.meta || { totalPages: 0 };
+
       if (append) {
         setBookings(prev => {
-          // Tránh duplicate id nếu backend trả về trùng
           const existingIds = new Set(prev.map(b => b.id));
-          const newItems = res.data.data.filter((b: any) => !existingIds.has(b.id));
+          const newItems = newData.filter((b: any) => !existingIds.has(b.id));
           return [...prev, ...newItems];
         });
       } else {
-        setBookings(res.data.data);
+        setBookings(newData);
       }
-      setHasMoreBookings(pageToLoad < res.data.meta.totalPages);
+      setHasMoreBookings(pageToLoad < meta.totalPages);
     } catch {
       // Bỏ qua lỗi ngầm
     } finally {
@@ -423,7 +425,7 @@ function ProfileContent() {
               </h3>
               <button onClick={() => {
                   setZaloPayUrl(null);
-                  axiosInstance.get("/bookings/my-bookings").then(res => setBookings(res.data));
+                  fetchMyBookings(false, 1, false);
               }} className="text-gray-500 hover:text-red-500 transition-colors p-1 bg-gray-200 rounded-full">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
