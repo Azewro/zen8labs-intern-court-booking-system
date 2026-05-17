@@ -399,4 +399,68 @@ describe('BookingsService', () => {
         .rejects.toThrow(BadRequestException);
     });
   });
+
+  // ===========================================================
+  // getMyBookings()
+  // ===========================================================
+  describe('getMyBookings (Lịch sử đặt sân của user)', () => {
+    const userId = 'user-123';
+
+    it('should return paginated bookings for the user', async () => {
+      prismaService.booking.findMany.mockResolvedValue([
+        { id: 'b1', userId, status: 'CONFIRMED', court: { name: 'Sân A' } },
+      ]);
+      prismaService.booking.count.mockResolvedValue(1);
+
+      const result = await service.getMyBookings(userId, { page: 1, limit: 5 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+      expect(result.meta.totalPages).toBe(1);
+      expect(prismaService.booking.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId }),
+          skip: 0,
+          take: 5,
+        }),
+      );
+    });
+
+    it('should filter by status when status is not ALL', async () => {
+      prismaService.booking.findMany.mockResolvedValue([]);
+      prismaService.booking.count.mockResolvedValue(0);
+
+      await service.getMyBookings(userId, { status: 'CONFIRMED' });
+
+      expect(prismaService.booking.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId, status: 'CONFIRMED' }),
+        }),
+      );
+    });
+
+    it('should NOT filter by status when status is ALL', async () => {
+      prismaService.booking.findMany.mockResolvedValue([]);
+      prismaService.booking.count.mockResolvedValue(0);
+
+      await service.getMyBookings(userId, { status: 'ALL' });
+
+      expect(prismaService.booking.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ status: expect.anything() }),
+        }),
+      );
+    });
+
+    it('should calculate correct skip for page 3 with limit 5', async () => {
+      prismaService.booking.findMany.mockResolvedValue([]);
+      prismaService.booking.count.mockResolvedValue(15);
+
+      await service.getMyBookings(userId, { page: 3, limit: 5 });
+
+      expect(prismaService.booking.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 5 }),
+      );
+    });
+  });
 });

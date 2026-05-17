@@ -239,4 +239,80 @@ describe('CourtsService', () => {
       await expect(service.close('court-1')).rejects.toThrow(BadRequestException);
     });
   });
+
+  // ===========================================================
+  // update()
+  // ===========================================================
+  describe('update', () => {
+    it('should update court fields successfully', async () => {
+      prismaService.court.findFirst.mockResolvedValue(mockCourt); // findOne inside update
+      prismaService.court.update.mockResolvedValue({ ...mockCourt, name: 'Sân B' });
+
+      const result = await service.update('court-1', { name: 'Sân B' } as any);
+
+      expect(prismaService.court.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'court-1' }, data: { name: 'Sân B' } }),
+      );
+      expect(result.name).toBe('Sân B');
+    });
+
+    it('should throw NotFoundException if court not found', async () => {
+      prismaService.court.findFirst.mockResolvedValue(null);
+
+      await expect(service.update('ghost-id', {} as any)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ===========================================================
+  // getAffectedBookingsDetail()
+  // ===========================================================
+  describe('getAffectedBookingsDetail', () => {
+    it('should classify bookings into urgent, vip, normal', async () => {
+      const now = Date.now();
+      prismaService.booking.findMany.mockResolvedValue([
+        // urgent: trong vòng 24h tới
+        {
+          id: 'b-urgent',
+          startTime: new Date(now + 2 * 3600 * 1000),   // 2 tiếng nữa
+          endTime:   new Date(now + 3 * 3600 * 1000),
+          user: { email: 'a@mail.com', fullName: 'A', phoneNumber: null },
+        },
+        // vip: ngoài 24h, booking >= 3 tiếng
+        {
+          id: 'b-vip',
+          startTime: new Date(now + 30 * 3600 * 1000),  // 30 tiếng nữa
+          endTime:   new Date(now + 33 * 3600 * 1000),  // 3 tiếng
+          user: { email: 'b@mail.com', fullName: 'B', phoneNumber: null },
+        },
+        // normal: ngoài 24h, booking < 3 tiếng
+        {
+          id: 'b-normal',
+          startTime: new Date(now + 30 * 3600 * 1000),
+          endTime:   new Date(now + 31 * 3600 * 1000),  // 1 tiếng
+          user: { email: 'c@mail.com', fullName: 'C', phoneNumber: null },
+        },
+      ]);
+
+      const result = await service.getAffectedBookingsDetail('court-1');
+
+      expect(result.urgent).toHaveLength(1);
+      expect(result.urgent[0].id).toBe('b-urgent');
+      expect(result.vip).toHaveLength(1);
+      expect(result.vip[0].id).toBe('b-vip');
+      expect(result.normal).toHaveLength(1);
+      expect(result.normal[0].id).toBe('b-normal');
+      expect(result.total).toBe(3);
+    });
+
+    it('should return empty arrays when no affected bookings', async () => {
+      prismaService.booking.findMany.mockResolvedValue([]);
+
+      const result = await service.getAffectedBookingsDetail('court-1');
+
+      expect(result.urgent).toHaveLength(0);
+      expect(result.vip).toHaveLength(0);
+      expect(result.normal).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+  });
 });
