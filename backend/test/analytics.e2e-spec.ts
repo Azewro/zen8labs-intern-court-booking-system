@@ -4,7 +4,7 @@
  */
 
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { createTestApp, cleanDatabase, seedBaseData } from './test-helpers';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -93,7 +93,7 @@ describe('Analytics Endpoints (e2e)', () => {
           endTime: new Date(endTime.getTime() + 24 * 3600 * 1000),
           totalPrice: 300000,
           paymentMethod: 'CASH',
-          paymentStatus: 'PENDING',
+          paymentStatus: 'UNPAID',
           status: 'PENDING',
         },
       });

@@ -5,7 +5,7 @@
  */
 
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { createTestApp, cleanDatabase } from './test-helpers';
 
 describe('Application Bootstrap (smoke test)', () => {

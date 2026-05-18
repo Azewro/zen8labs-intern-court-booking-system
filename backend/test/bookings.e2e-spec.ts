@@ -5,7 +5,7 @@
  */
 
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { createTestApp, cleanDatabase, seedBaseData } from './test-helpers';
 
 // Helper: Tạo ISO string ngày mai giờ X
