@@ -1,0 +1,15 @@
+{
+  "name": "zen8labs-court-booking-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Court Booking System — NestJS + Next.js + PostgreSQL",
+  "scripts": {
+    "prepare": "husky",
+    "test:unit": "cd backend && npm run test:unit",
+    "test:e2e": "cd backend && npm run test:e2e",
+    "test:all": "cd backend && npm run test:all"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

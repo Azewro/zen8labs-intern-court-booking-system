@@ -1,0 +1,19 @@
+# docker-compose.test.yml
+# Chạy DB riêng cho integration test trên port 5433
+# Dùng: docker compose -f docker-compose.test.yml up -d
+# Xóa: docker compose -f docker-compose.test.yml down -v
+
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: z8l_postgres_test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: court_booking_test
+    ports:
+      - "5433:5432"    # ← Port 5433 (khác với DB chính 5432)
+    tmpfs:
+      - /var/lib/postgresql/data  # RAM storage: nhanh hơn, xóa sạch khi container stop
+
+volumes: {}

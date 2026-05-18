@@ -1,0 +1,111 @@
+name: CI — Test Suite
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ============================================================
+  # JOB 1: Unit Tests (Nhanh, không cần DB)
+  # ============================================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm run test:cov
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: backend/coverage/
+          retention-days: 7
+
+  # ============================================================
+  # JOB 2: Integration Tests (Cần PostgreSQL)
+  # ============================================================
+  integration-tests:
+    name: Integration Tests (E2E)
+    runs-on: ubuntu-latest
+    needs: unit-tests  # ← Chỉ chạy nếu Unit Tests pass
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: court_booking_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env.test for CI
+        run: |
+          cat > .env.test << EOF
+          DATABASE_URL="postgresql://postgres:password@localhost:5433/court_booking_test?schema=public"
+          JWT_SECRET="ci-test-secret-key"
+          GOOGLE_CLIENT_ID="fake-google-client-id"
+          GOOGLE_CLIENT_SECRET="fake-google-client-secret"
+          SMTP_HOST="smtp.ethereal.email"
+          SMTP_PORT=587
+          SMTP_USER="ci@ethereal.email"
+          SMTP_PASS="cipassword"
+          ZALOPAY_APP_ID="test_app_id"
+          ZALOPAY_KEY1="test_key1"
+          ZALOPAY_KEY2="test_key2"
+          ZALOPAY_ENDPOINT="http://localhost:9999/fake"
+          EOF
+
+      - name: Run Prisma migrations on test DB
+        run: npx dotenv -e .env.test -- npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5433/court_booking_test?schema=public
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5433/court_booking_test?schema=public

@@ -1,0 +1,22 @@
+#!/bin/sh
+# .husky/pre-commit
+# Runs automatically BEFORE every git commit.
+# If unit tests fail -> commit is blocked.
+
+echo ""
+echo "[pre-commit] Running unit tests..."
+echo "-------------------------------------------"
+
+cd backend && npm run test:unit
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "[pre-commit] FAILED: Unit tests did not pass. Commit aborted."
+  echo "  Fix the failing tests and try again."
+  echo ""
+  exit 1
+fi
+
+echo ""
+echo "[pre-commit] OK: All unit tests passed. Committing..."
+echo ""

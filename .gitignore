@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # Personal documentation & notes (not for repo)
 /docs/
+
+# Test environment files (contain test credentials)
+backend/.env.test
