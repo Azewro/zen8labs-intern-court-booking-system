@@ -112,6 +112,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:password@localhost:5433/court_booking_test?schema=public
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: node test/run-ci-e2e.js
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5433/court_booking_test?schema=public
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
