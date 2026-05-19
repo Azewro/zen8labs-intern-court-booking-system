@@ -7,14 +7,15 @@ export class VouchersService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateVoucherDto) {
+    const codeUpper = dto.code.toUpperCase();
     const existing = await this.prisma.voucher.findUnique({
-      where: { code: dto.code },
+      where: { code: codeUpper },
     });
     if (existing) throw new BadRequestException('Mã voucher đã tồn tại');
 
     return this.prisma.voucher.create({
       data: {
-        code: dto.code.toUpperCase(),
+        code: codeUpper,
         discountPercent: dto.discountPercent,
         maxDiscount: dto.maxDiscount,
         validTo: new Date(dto.validTo),

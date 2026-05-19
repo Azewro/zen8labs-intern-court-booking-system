@@ -66,7 +66,7 @@ describe('Bookings Endpoints (e2e)', () => {
 
       bookingId = res.body.booking.id;
       expect(res.body.booking.status).toBe('PENDING');
-      expect(res.body.booking.totalPrice).toBe(200000); // 2h × 100k
+      expect(Number(res.body.booking.totalPrice)).toBe(200000); // 2h × 100k
       expect(res.body.payUrl).toBeNull(); // CASH → không có payUrl
     });
 

@@ -66,9 +66,13 @@ describe('Analytics Endpoints (e2e)', () => {
       expect(court).toBeDefined();
       expect(user).toBeDefined();
 
-      const today = new Date();
-      const startTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 10, 0, 0);
-      const endTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0); // 2 hours
+      const now = new Date();
+      let startTime = new Date(now.getTime() - 3 * 3600 * 1000);
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      if (startTime < startOfMonth) {
+        startTime = new Date(startOfMonth.getTime() + 1000);
+      }
+      const endTime = new Date(startTime.getTime() + 2 * 3600 * 1000); // 2 hours duration
 
       // Create a confirmed booking
       await prisma.booking.create({
