@@ -23,6 +23,7 @@ export default function AdminPOSPage() {
   const [bookedSlots, setBookedSlots] = useState<{start: string, end: string}[]>([]);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voucherCode, setVoucherCode] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [bookingPayload, setBookingPayload] = useState<any>(null);
   const [pricingDetails, setPricingDetails] = useState<any>(null);
@@ -81,6 +82,7 @@ export default function AdminPOSPage() {
         courtId: selectedCourt.id,
         startTime: startTimeIso,
         endTime: endTimeIso,
+        voucherCode: voucherCode.trim() || undefined,
       });
       setPricingDetails(res.data);
       setBookingPayload({ startTimeIso, endTimeIso, startTimeStr, endTimeStr, dateStr });
@@ -101,6 +103,7 @@ export default function AdminPOSPage() {
         startTime: bookingPayload.startTimeIso,
         endTime: bookingPayload.endTimeIso,
         paymentMethod: 'CASH',
+        voucherCode: voucherCode.trim() || undefined,
       });
 
       // Bỏ đoạn auto approve để Lễ tân tự sang tab kia Duyệt
@@ -108,6 +111,7 @@ export default function AdminPOSPage() {
       
       toast.success("Tạo lịch chờ thành công, đang chuyển hướng...");
       setShowConfirmModal(false);
+      setVoucherCode("");
       
       // Chuyển hướng sang trang Quản lý Đặt sân
       router.push('/admin/bookings');
@@ -199,7 +203,18 @@ export default function AdminPOSPage() {
                   })}
                 </div>
                 
-                <div className="border-t border-slate-800 pt-6">
+                <div className="border-t border-slate-800 pt-6 space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Mã Khuyến mãi (Voucher) - Nếu có</label>
+                    <input
+                      type="text"
+                      value={voucherCode}
+                      onChange={e => setVoucherCode(e.target.value)}
+                      placeholder="Ví dụ: SUMMER10, ZEN8VIP..."
+                      className="w-full bg-slate-850 border border-slate-700 focus:border-teal-500 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none transition-all uppercase placeholder-slate-500"
+                    />
+                  </div>
+
                   <button 
                     onClick={openConfirmModal} 
                     disabled={isSubmitting || selectedSlots.length === 0}
@@ -239,6 +254,23 @@ export default function AdminPOSPage() {
               <div className="flex justify-between border-b border-slate-800 pb-3">
                 <span>Khung giờ:</span> <span className="font-bold text-teal-400">{bookingPayload.startTimeStr} - {bookingPayload.endTimeStr}</span>
               </div>
+
+              <div className="space-y-2 border-b border-slate-800 pb-3 text-sm text-slate-400">
+                <div className="flex justify-between">
+                  <span>Tạm tính (chưa giảm):</span>
+                  <span className="text-white font-medium">{pricingDetails.calculatedPrice?.toLocaleString()} đ</span>
+                </div>
+                {pricingDetails.discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-400 font-semibold">
+                    <span>Mã giảm giá áp dụng:</span>
+                    <span>-{pricingDetails.discountAmount?.toLocaleString()} đ</span>
+                  </div>
+                )}
+                {pricingDetails.voucherError && (
+                  <div className="text-rose-400 text-xs font-semibold mt-1">Lưu ý: {pricingDetails.voucherError}</div>
+                )}
+              </div>
+
               <div className="flex justify-between pb-2">
                 <span className="font-medium text-lg">Số tiền cần thu:</span> <span className="font-bold text-emerald-400 text-3xl">{pricingDetails.finalPrice?.toLocaleString()} đ</span>
               </div>

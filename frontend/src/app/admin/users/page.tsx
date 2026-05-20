@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ChevronUp, ChevronDown, ChevronsUpDown, UserCheck, UserX, Shield, User, Filter } from "lucide-react";
+import { Search, ChevronUp, ChevronDown, ChevronsUpDown, UserCheck, UserX, Shield, User, Filter, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import axiosInstance from "@/lib/axios";
@@ -37,6 +37,52 @@ export default function UsersPage() {
   const [sortBy, setSortBy] = useState<SortKey>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [confirmUser, setConfirmUser] = useState<UserRow | null>(null);
+  
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    phoneNumber: "",
+    role: "ADMIN" as "ADMIN" | "USER",
+  });
+  const [createLoading, setCreateLoading] = useState(false);
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.fullName.trim() || !createForm.email.trim() || !createForm.password.trim()) {
+      toast.error("Vui lòng điền đầy đủ Họ tên, Email và Mật khẩu");
+      return;
+    }
+    if (createForm.password.length < 6) {
+      toast.error("Mật khẩu phải từ 6 ký tự trở lên");
+      return;
+    }
+    setCreateLoading(true);
+    try {
+      await axiosInstance.post("/users", {
+        fullName: createForm.fullName.trim(),
+        email: createForm.email.trim(),
+        password: createForm.password,
+        phoneNumber: createForm.phoneNumber.trim() || undefined,
+        role: createForm.role,
+      });
+      toast.success("Tạo tài khoản thành công!");
+      setShowCreateModal(false);
+      setCreateForm({
+        fullName: "",
+        email: "",
+        password: "",
+        phoneNumber: "",
+        role: "ADMIN",
+      });
+      fetchUsers(meta.page);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Lỗi khi tạo tài khoản");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("user_email");
@@ -105,9 +151,17 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 text-transparent bg-clip-text">Quản lý Người dùng</h2>
-        <p className="text-slate-400 mt-1">Xem, tìm kiếm và quản lý tài khoản khách hàng & admin.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 text-transparent bg-clip-text">Quản lý Người dùng</h2>
+          <p className="text-slate-400 mt-1">Xem, tìm kiếm và quản lý tài khoản khách hàng & admin.</p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-teal-500/20 transition-all text-sm"
+        >
+          <Plus size={16} /> Tạo tài khoản
+        </button>
       </div>
 
       <div className="bg-slate-900/40 border border-slate-800/50 rounded-2xl p-5 flex flex-wrap gap-4 items-center">
@@ -208,6 +262,99 @@ export default function UsersPage() {
                 <button onClick={() => setConfirmUser(null)} className="flex-1 py-2 bg-slate-800 text-white rounded-xl text-sm font-bold">Hủy</button>
                 <button onClick={handleToggle} className={`flex-1 py-2 rounded-xl text-sm font-bold text-white ${confirmUser.isActive ? "bg-rose-500" : "bg-emerald-500"}`}>Xác nhận</button>
               </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-md w-full shadow-2xl relative"
+            >
+              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                <Shield size={20} className="text-teal-400" /> Tạo tài khoản người dùng
+              </h3>
+              
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Họ và tên *</label>
+                  <input
+                    type="text"
+                    required
+                    value={createForm.fullName}
+                    onChange={e => setCreateForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    placeholder="Nguyễn Văn A"
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-teal-500 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Địa chỉ Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={createForm.email}
+                    onChange={e => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="example@gmail.com"
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-teal-500 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Mật khẩu *</label>
+                  <input
+                    type="password"
+                    required
+                    value={createForm.password}
+                    onChange={e => setCreateForm(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder="Nhập tối thiểu 6 ký tự"
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-teal-500 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Số điện thoại</label>
+                  <input
+                    type="tel"
+                    value={createForm.phoneNumber}
+                    onChange={e => setCreateForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                    placeholder="Ví dụ: 0912345678"
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-teal-500 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Vai trò (Role)</label>
+                  <select
+                    value={createForm.role}
+                    onChange={e => setCreateForm(prev => ({ ...prev, role: e.target.value as "ADMIN" | "USER" }))}
+                    className="w-full bg-slate-800 border border-slate-700 focus:border-teal-500 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none transition-all border-slate-600"
+                  >
+                    <option value="ADMIN">ADMIN (Nhân viên / Lễ tân / Quản trị)</option>
+                    <option value="USER">USER (Khách hàng)</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold transition-all"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createLoading}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-teal-500/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    {createLoading ? "Đang tạo..." : "Tạo ngay"}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

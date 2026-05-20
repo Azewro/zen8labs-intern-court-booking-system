@@ -1,6 +1,8 @@
 import {
   Controller,
   Get,
+  Post,
+  Body,
   Patch,
   Param,
   Query,
@@ -11,12 +13,19 @@ import { UsersService } from './users.service';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller('users')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('ADMIN')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  // POST /users
+  @Post()
+  createUser(@Body() dto: CreateUserDto) {
+    return this.usersService.createUser(dto);
+  }
 
   // GET /users?page=1&limit=10&search=...&role=USER&sortBy=createdAt&sortOrder=desc
   @Get()

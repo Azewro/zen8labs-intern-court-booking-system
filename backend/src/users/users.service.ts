@@ -2,9 +2,12 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -16,6 +19,24 @@ export class UsersService {
 
   async create(data: any): Promise<User> {
     return this.prisma.user.create({ data });
+  }
+
+  async createUser(dto: CreateUserDto): Promise<User> {
+    const existing = await this.findByEmail(dto.email);
+    if (existing) {
+      throw new BadRequestException('Email đã tồn tại trên hệ thống.');
+    }
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    return this.prisma.user.create({
+      data: {
+        email: dto.email,
+        password: hashedPassword,
+        fullName: dto.fullName,
+        phoneNumber: dto.phoneNumber || null,
+        role: dto.role,
+        isActive: true,
+      },
+    });
   }
 
   async findById(id: string): Promise<User | null> {
