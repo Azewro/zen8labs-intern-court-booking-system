@@ -116,52 +116,77 @@ src/
 
 ---
 
-## Cài đặt nhanh
+## Hướng Dẫn Khởi Chạy (Run & Development Guide)
 
-### Yêu cầu
+### Yêu cầu hệ thống
 - Node.js >= 18
 - Docker & Docker Compose
 - Git
 
-### Bước 1: Clone & cài dependencies
+### 🚀 Cách A: Khởi Chạy Gọn Nhẹ Bằng Một Lệnh (Local One-Command Startup)
+
+Cách tốt nhất để khởi động toàn bộ dự án (Database Docker + Backend NestJS + Frontend Next.js) chỉ bằng 1 câu lệnh duy nhất từ thư mục gốc:
+
+1. **Cài đặt toàn bộ dependencies:**
+   ```bash
+   # Chạy tại thư mục gốc, hệ thống tự động cài cho cả Backend và Frontend qua prefix script
+   npm install
+   ```
+
+2. **Khởi chạy toàn bộ hệ thống:**
+   ```bash
+   # Khởi động DB Postgres trong container Docker + khởi chạy Backend & Frontend song song
+   npm run dev:all
+   ```
+
+---
+
+### 🐳 Cách B: Quản Lý Cơ Sở Dữ Liệu Qua Docker (Docker Commands)
+
+Nếu bạn muốn tự quản lý cơ sở dữ liệu Docker hoặc quản lý container riêng lẻ:
+
+* **Bật Postgres Database (Port 5432):**
+  ```bash
+  npm run docker:up
+  ```
+
+* **Xem logs hoạt động của Database:**
+  ```bash
+  npm run docker:logs
+  ```
+
+* **Dừng và dọn dẹp DB Container:**
+  ```bash
+  npm run docker:down
+  ```
+
+---
+
+### 🛠️ Cách C: Cài đặt chi tiết từng bước thủ công (Manual Step-by-Step Setup)
+
+Nếu bạn muốn cài đặt và chạy từng service độc lập trong các tab terminal khác nhau:
+
+#### Bước 1: Khởi động Database
 ```bash
-git clone https://github.com/Azewro/zen8labs-intern-court-booking-system.git
-cd zen8labs-intern-court-booking-system
+docker compose up -d
 ```
 
-### Bước 2: Khởi động Database (PostgreSQL via Docker)
-```bash
-docker-compose up -d
-```
-> PostgreSQL sẽ chạy tại `localhost:5432`, database: `court_booking_db`
-
-### Bước 3: Cài đặt Backend
+#### Bước 2: Cài đặt Backend NestJS
 ```bash
 cd backend
 npm install
-
-# Copy biến môi trường
-cp .env.example .env
-# Chỉnh sửa .env với thông tin của bạn
-
-# Chạy migration & tạo Prisma client
-npx prisma migrate dev
-npx prisma generate
-
-# Khởi động server (port 3001)
-npm run start:dev
+cp .env.example .env                  # Chỉnh sửa cấu hình DB & SMTP nếu cần
+npx prisma migrate dev                # Đồng bộ database schema
+npx prisma generate                   # Generate Prisma client
+npm run start:dev                     # Chạy backend dev server (Port 3001)
 ```
 
-### Bước 4: Cài đặt Frontend
+#### Bước 3: Cài đặt Frontend Next.js
 ```bash
 cd ../frontend
 npm install
-
-# Copy biến môi trường
-cp .env.local.example .env.local
-
-# Khởi động dev server (port 3000)
-npm run dev
+cp .env.local.example .env.local      # Cấu hình URL backend
+npm run dev                           # Chạy frontend dev server (Port 3000)
 ```
 
 ### Bước 5: Truy cập

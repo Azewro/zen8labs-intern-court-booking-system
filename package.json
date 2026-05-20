@@ -5,11 +5,17 @@
   "description": "Court Booking System — NestJS + Next.js + PostgreSQL",
   "scripts": {
     "prepare": "husky",
+    "postinstall": "npm install --prefix backend && npm install --prefix frontend",
+    "dev:all": "docker compose up -d && concurrently -n \"BACKEND,FRONTEND\" -c \"green,yellow\" \"npm --prefix backend run start:dev\" \"npm --prefix frontend run dev\"",
+    "docker:up": "docker compose up -d",
+    "docker:logs": "docker compose logs -f",
+    "docker:down": "docker compose down",
     "test:unit": "cd backend && npm run test:unit",
     "test:e2e": "cd backend && npm run test:e2e",
     "test:all": "cd backend && npm run test:all"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "husky": "^9.1.7"
   }
 }
